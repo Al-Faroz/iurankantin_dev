@@ -1,0 +1,27 @@
+/vendor/
+/writable/cache/*
+!/writable/cache/index.html
+/writable/logs/*
+!/writable/logs/index.html
+/writable/session/*
+!/writable/session/index.html
+/writable/uploads/*
+!/writable/uploads/index.html
+/writable/debugbar/*
+
+.env
+
+# Data upload dinamis (foto nota, logo, background kartu) - tidak ditrack Git
+/uploads/*
+!/uploads/.htaccess
+!/uploads/bukti_nota/
+!/uploads/branding/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Composer
+composer.phar

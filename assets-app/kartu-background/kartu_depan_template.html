@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Kartu Anggota Kantin - Template Depan</title>
+    <style>
+        :root {
+            --w: 1011px;
+            --h: 638px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: #e5e5e5;
+            font-family: 'Poppins', Arial, sans-serif;
+            padding: 40px;
+        }
+
+        .card {
+            position: relative;
+            width: var(--w);
+            height: var(--h);
+            /* GANTI path ini ke file hasil upload "Background Kartu Depan" dari menu Setting */
+            background: url('assets/background-depan.jpg') no-repeat center/cover;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+            color: #fff;
+        }
+
+        /* ---- QR 1:1 (posisi sama persis dgn referensi kartu-pelajar) ---- */
+        .qr-box {
+            position: absolute;
+            width: 120px;
+            height: 120px;
+            left: 810px;
+            top: 375px;
+            background: #fff;
+            padding: 4px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #999;
+            font-size: 10px;
+        }
+
+        .qr-box img {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .qr-caption {
+            position: absolute;
+            left: 790px;
+            top: 505px;
+            width: 160px;
+            text-align: center;
+            font-size: 9px;
+            letter-spacing: .5px;
+            color: #fff;
+            opacity: .9;
+        }
+
+        /* ---- Nama Penjual ---- */
+        .nama {
+            position: absolute;
+            left: 40px;
+            top: 175px;
+            width: 570px;
+            font-size: 42px;
+            font-weight: 800;
+            line-height: 1.15;
+            text-transform: uppercase;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, .25);
+        }
+
+        /* ---- Kolom data: Golongan, Lokasi/Lapak, No. HP, Tanggal Bergabung ---- */
+        .meta-col {
+            position: absolute;
+            left: 40px;
+            top: 340px;
+            width: 460px;
+            display: flex;
+            flex-wrap: wrap;
+            row-gap: 10px;
+            font-size: 19px;
+            font-weight: 700;
+        }
+
+        .meta-col .item {
+            width: 50%;
+        }
+
+        .meta-col .item .label {
+            display: block;
+            font-size: 11px;
+            font-weight: 500;
+            opacity: .75;
+            text-transform: uppercase;
+            letter-spacing: .5px;
+        }
+
+        /* Baris .ttl & .alamat dari template kartu pelajar TIDAK dipakai
+           (tidak ada data setara untuk penjual) - lihat Bab 5.9 Dokumen Acuan */
+    </style>
+</head>
+
+<body>
+
+    <div class="card" id="kartu-depan">
+
+        <div class="qr-box" data-field="qr">QR CODE</div>
+        <div class="qr-caption" data-field="kode_kartu">KTK-0001-2026</div>
+
+        <div class="nama" data-field="nama_penjual">Nama Penjual Contoh</div>
+
+        <div class="meta-col">
+            <div class="item"><span class="label">Golongan</span><span data-field="golongan">Golongan 1</span></div>
+            <div class="item"><span class="label">Lokasi / Lapak</span><span data-field="lokasi_lapak">Lapak A3</span></div>
+            <div class="item"><span class="label">No. HP</span><span data-field="no_hp">0812xxxxxxx</span></div>
+            <div class="item"><span class="label">Bergabung</span><span data-field="tanggal_daftar">01-01-2026</span></div>
+        </div>
+
+    </div>
+
+</body>
+
+</html>

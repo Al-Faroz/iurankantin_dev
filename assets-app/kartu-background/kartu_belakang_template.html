@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="id">
+
+<head>
+    <meta charset="UTF-8">
+    <title>Kartu Anggota Kantin - Template Belakang</title>
+    <style>
+        :root {
+            --w: 1011px;
+            --h: 638px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            background: #e5e5e5;
+            font-family: 'Poppins', Arial, sans-serif;
+            padding: 40px;
+        }
+
+        .card {
+            position: relative;
+            width: var(--w);
+            height: var(--h);
+            /* GANTI path ini ke file hasil upload "Background Kartu Belakang" dari menu Setting */
+            background: url('assets/background-belakang.jpg') no-repeat center/cover;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+            color: #fff;
+        }
+
+        /* Sisi belakang statis - tidak ada data-field dinamis.
+           Isi (alamat madrasah, kontak, syarat/ketentuan kartu, dst) sepenuhnya
+           mengikuti gambar background yang diupload lewat menu Setting,
+           sama seperti pola Kartu Pelajar Digital di SisisFour. */
+    </style>
+</head>
+
+<body>
+
+    <div class="card" id="kartu-belakang">
+        <!-- sengaja kosong, seluruh konten ada di gambar background -->
+    </div>
+
+</body>
+
+</html>
