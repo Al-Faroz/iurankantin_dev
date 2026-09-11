@@ -1,6 +1,8 @@
 # DOKUMEN ACUAN
+
 ## Aplikasi Pencatatan Iuran Kantin — MTsN 4 Jombang
-**Versi:** Draft v7 — DB & baseURL dev terkunci, kartu anggota jadi model depan-belakang dengan background upload dinamis via Setting, template awal sudah dibuat, coding akan dikerjakan lewat ChatGPT
+
+**Versi:** FINAL v8 — semua poin terkonfirmasi, project sudah live di repo GitHub, siap dikerjakan penuh oleh ChatGPT
 
 ---
 
@@ -9,12 +11,14 @@
 Aplikasi ini **bukan** aplikasi kasir/jual-beli kantin, dan **bukan** iuran dari siswa. Ini adalah aplikasi pencatatan **iuran dari penjual/pedagang** yang berjualan di lingkungan kantin madrasah kepada pihak madrasah, sekaligus pencatatan kas kantin secara sederhana (pemasukan iuran, pengeluaran operasional, dan setoran ke pimpinan).
 
 **Tujuan aplikasi:**
+
 - Mencatat pemasukan iuran harian dari tiap penjual kantin
 - Mencatat pengeluaran terkait operasional kantin
 - Mencatat setoran kas ke pimpinan madrasah
 - Menyediakan rekap/laporan kas kantin untuk pimpinan
 
 **Bukan bagian dari scope:**
+
 - Tidak ada fitur piutang/tunggakan (siapa belum bayar) — cukup catat yang sudah bayar
 - Tidak terintegrasi dengan SisisFour (Absensi/BK) — berdiri sendiri, database terpisah
 
@@ -25,7 +29,7 @@ Aplikasi ini **bukan** aplikasi kasir/jual-beli kantin, dan **bukan** iuran dari
 Mengikuti konvensi yang sudah baku dari proyek-proyek sebelumnya (SisisFour), untuk konsistensi:
 
 | Aspek | Keputusan |
-|---|---|
+| --- | --- |
 | Framework | CodeIgniter 4, **standard MVC** (flat Controllers/Models/Views, bukan HMVC) |
 | UI Theme | Sneat Free (Bootstrap 5) |
 | Library pendukung | jQuery, DataTables (Responsive plugin), SweetAlert2, Dompdf (untuk bukti setoran & form cetak mingguan), GD/Intervention Image (kompresi foto nota otomatis <500 KB; render kartu anggota ke JPG), Endroid QR Code / phpqrcode (generate QR kartu anggota), html5-qrcode / jsQR (scan QR via kamera browser, client-side JS — solusi karena banyak Android tidak punya scanner QR bawaan) |
@@ -46,7 +50,7 @@ Mengikuti konvensi yang sudah baku dari proyek-proyek sebelumnya (SisisFour), un
 Aplikasi ini sederhana, hanya 2 role:
 
 | Role | Hak Akses |
-|---|---|
+| --- | --- |
 | **Operator** (merangkap Admin) | Full akses: kelola master data penjual, kategori, input transaksi iuran, input pengeluaran, catat setoran, lihat semua laporan |
 | **Pimpinan** | Read-only: lihat dashboard, rekap kas, laporan iuran/pengeluaran/setoran — tidak bisa input/edit apa pun |
 
@@ -57,8 +61,9 @@ Tidak perlu RBAC matrix kompleks seperti SisisFour — cukup 2 role hardcoded, t
 ## 4. STRUKTUR DATABASE (Draft Skema)
 
 ### 4.1 `penjual` (Master Data Penjual)
+
 | Field | Tipe | Keterangan |
-|---|---|---|
+| --- | --- | --- |
 | id_penjual | INT PK | |
 | nama_penjual | VARCHAR | |
 | id_golongan | INT FK | ke `golongan_penjual` |
@@ -71,15 +76,17 @@ Tidak perlu RBAC matrix kompleks seperti SisisFour — cukup 2 role hardcoded, t
 | created_at, updated_at | DATETIME | |
 
 ### 4.2 `golongan_penjual` (Master Golongan — 3 golongan, nominal tetap)
+
 | Field | Tipe | Keterangan |
-|---|---|---|
+| --- | --- | --- |
 | id_golongan | INT PK | |
 | nama_golongan | VARCHAR | Golongan 1 / 2 / 3 |
 | nominal_iuran | DECIMAL | Gol 1 = 10.000, Gol 2 = 7.500, Gol 3 = 5.000 — dipakai sebagai prefill di form bulk insert, operator tetap bisa override manual per transaksi |
 
 ### 4.3 `transaksi_iuran` (Pemasukan)
+
 | Field | Tipe | Keterangan |
-|---|---|---|
+| --- | --- | --- |
 | id_transaksi | INT PK | |
 | id_penjual | INT FK | |
 | tanggal | DATE | |
@@ -89,14 +96,16 @@ Tidak perlu RBAC matrix kompleks seperti SisisFour — cukup 2 role hardcoded, t
 | created_at | DATETIME | |
 
 ### 4.4 `kategori_pengeluaran` (Master Kategori Pengeluaran)
+
 | Field | Tipe | Keterangan |
-|---|---|---|
+| --- | --- | --- |
 | id_kategori_keluar | INT PK | |
 | nama_kategori | VARCHAR | tidak ada data awal/seed — operator isi sendiri lewat menu Master Kategori Pengeluaran |
 
 ### 4.5 `transaksi_pengeluaran`
+
 | Field | Tipe | Keterangan |
-|---|---|---|
+| --- | --- | --- |
 | id_pengeluaran | INT PK | |
 | tanggal | DATE | |
 | id_kategori_keluar | INT FK | |
@@ -107,8 +116,9 @@ Tidak perlu RBAC matrix kompleks seperti SisisFour — cukup 2 role hardcoded, t
 | created_at | DATETIME | |
 
 ### 4.6 `setoran_pimpinan`
+
 | Field | Tipe | Keterangan |
-|---|---|---|
+| --- | --- | --- |
 | id_setoran | INT PK | |
 | tanggal_form | DATE | tanggal saat form/bukti dibuat |
 | periode_awal | DATE | tanggal awal periode setoran (mis. rentang iuran yang disetorkan) |
@@ -119,8 +129,9 @@ Tidak perlu RBAC matrix kompleks seperti SisisFour — cukup 2 role hardcoded, t
 | created_at | DATETIME | |
 
 ### 4.7 `users`
+
 | Field | Tipe | Keterangan |
-|---|---|---|
+| --- | --- | --- |
 | id_user | INT PK | |
 | nama | VARCHAR | |
 | username | VARCHAR | |
@@ -129,8 +140,9 @@ Tidak perlu RBAC matrix kompleks seperti SisisFour — cukup 2 role hardcoded, t
 | status_aktif | ENUM | |
 
 ### 4.8 `setting` (baris tunggal, data madrasah & branding)
+
 | Field | Tipe | Keterangan |
-|---|---|---|
+| --- | --- | --- |
 | nama_madrasah | VARCHAR | header PDF bukti setoran & form mingguan |
 | alamat_madrasah | VARCHAR | nullable |
 | logo | VARCHAR | path upload logo madrasah |
@@ -157,7 +169,7 @@ Tidak perlu RBAC matrix kompleks seperti SisisFour — cukup 2 role hardcoded, t
    - **Layout/posisi elemen** — mengikuti persis template referensi `kartu-pelajar.zip` (canvas 1011×638px, elemen posisi absolut), field disesuaikan ke data penjual:
 
      | Elemen template asli | Posisi (left, top) | Dipakai untuk kartu anggota kantin |
-     |---|---|---|
+     | --- | --- | --- |
      | `.photo-box` (foto 3:4) | 760, 73 | **Dihapus** — tidak ada foto penjual |
      | `.qr-box` (QR 1:1) | 810, 375 | Tetap — QR verifikasi (encode kode_verifikasi) |
      | `.qr-caption` | 790, 505 | Tetap — teks `kode_kartu` |
@@ -176,8 +188,8 @@ Tidak perlu RBAC matrix kompleks seperti SisisFour — cukup 2 role hardcoded, t
      - **Sisi Depan**: berisi data dinamis (nama, golongan, lokasi/lapak, no. HP, tanggal bergabung, QR) sesuai tabel mapping di atas, di-overlay di atas gambar background depan
      - **Sisi Belakang**: statis, tanpa data dinamis — biasanya berisi alamat madrasah/kontak/syarat kartu, sepenuhnya mengikuti gambar background belakang yang diupload
      - Template awal (HTML/CSS, canvas 1011×638px, posisi elemen sesuai tabel mapping) **sudah dibuat** sebagai draft/starting point (lihat file terlampir), background di dalamnya tinggal diganti setelah operator upload lewat Setting
-   - **Download satuan**: tombol download per penjual, output **2 file JPG (depan + belakang)** atau digabung jadi 1 file JPG (depan-belakang bersisian) — *(perlu dikonfirmasi preferensinya)*
-   - **Download bulk**: tombol "Download Semua" → generate kartu depan+belakang untuk semua penjual aktif sekaligus, dibungkus dalam 1 file **ZIP**
+   - **Download satuan**: operator pilih salah satu dari 2 opsi tombol per penjual — **"Download Depan"** (1 file JPG, sisi depan saja) atau **"Download Lengkap"** (ZIP berisi 2 file JPG: depan + belakang)
+   - **Download bulk**: sama seperti download satuan, ada 2 opsi — **"Download Semua (Depan)"** (1 ZIP berisi JPG depan semua penjual aktif) atau **"Download Semua (Lengkap)"** (1 ZIP berisi JPG depan+belakang semua penjual aktif)
    - Render JPG dilakukan server-side (HTML/CSS template → image, atau digambar langsung pakai GD/Imagick di atas background)
 10. **Setting** — data madrasah (nama madrasah, alamat, upload logo) yang dipakai sebagai header di PDF (bukti setoran, form mingguan); **tambahan: upload Background Kartu Depan & Background Kartu Belakang** untuk Kartu Anggota Kantin (format gambar, dinamis, bisa diganti kapan saja tanpa ubah kode)
 11. **Dashboard** — saldo kas berjalan (Total Iuran − Total Pengeluaran − Total Setoran), grafik tren harian/bulanan, ringkasan hari ini
@@ -193,15 +205,18 @@ Tidak perlu RBAC matrix kompleks seperti SisisFour — cukup 2 role hardcoded, t
 ## 6. ALUR KERJA (Business Flow)
 
 **Alur mingguan (persiapan):**
+
 1. Operator cetak Form Iuran Mingguan (PDF) di awal minggu → dipakai untuk mencatat manual iuran tiap penjual per hari di lapangan
 
 **Alur harian:**
+
 1. Operator input iuran lewat form bulk insert (satu tabel semua penjual, urut golongan tertinggi → nama ascending), isi nominal hanya untuk penjual yang bayar hari itu, submit sekaligus (data dari catatan manual di form mingguan dipindah ke sini)
 2. Operator input pengeluaran jika ada (sesuai kebutuhan, tidak harus tiap hari)
 3. Saat mau menyetor ke pimpinan: operator isi form (tanggal form, periode awal, periode akhir, besar setoran) → cetak PDF → bawa fisik dana sesuai nominal di form → serahkan ke pimpinan → baru setelah itu operator input data yang sama ke aplikasi (tersimpan resmi di database)
 4. Saldo kas = akumulasi (Iuran masuk) − (Pengeluaran) − (Setoran ke pimpinan)
 
 **Alur pimpinan:**
+
 - Login → lihat dashboard saldo & tren → buka laporan detail sesuai kebutuhan → export jika perlu
 
 ---
@@ -209,6 +224,7 @@ Tidak perlu RBAC matrix kompleks seperti SisisFour — cukup 2 role hardcoded, t
 ## 7. KONVENSI TEKNIS
 
 Sama seperti proyek CI4 lain milik madrasah ini:
+
 - Soft delete untuk master data (`penjual`, `golongan_penjual`, `kategori_pengeluaran`) agar histori transaksi tidak rusak; hard delete untuk transaksi yang salah input (dengan konfirmasi)
 - DataTables Responsive untuk semua tabel data
 - Client-side pagination
@@ -314,6 +330,7 @@ iuran-kantin/
 ```
 
 **Catatan migrasi dari referensi:**
+
 - Isi `assets.zip` dipakai apa adanya sebagai folder `assets/` di root project (tidak diubah struktur internalnya), supaya update tema Sneat di masa depan gampang tinggal timpa folder ini.
 - File-file di `html.zip` **tidak dipakai langsung** sebagai view — tiap halaman dipecah dan disusun ulang mengikuti naming convention `{modul}_{aksi}.php`, bagian yang berulang (sidebar menu, navbar, footer, script includes) dipisah ke `layout_header.php` & `layout_footer.php` supaya tidak duplikasi di 20+ file view.
 
@@ -324,7 +341,7 @@ iuran-kantin/
 Berlaku untuk seluruh halaman aplikasi, mengacu ke komponen Sneat yang sudah tersedia di `html.zip`:
 
 | Kebutuhan Halaman | Komponen Sneat yang Dipakai | Catatan |
-|---|---|---|
+| --- | --- | --- |
 | Layout dasar (sidebar + navbar + konten) | `index.html` (struktur `layout-wrapper` > `layout-menu` + `layout-page`) | Sidebar collapsible ke hamburger di layar kecil — wajib, karena mayoritas akses dari HP Android |
 | Login | `auth-login-basic.html` | Tanpa fitur "Register" (akun dibuat manual oleh Operator lewat menu User) |
 | Tabel data (Penjual, Laporan, dst) | `tables-basic.html` + DataTables (vendor/libs/datatables) | Wajib pakai plugin **Responsive** (kolom collapse jadi detail expand di layar kecil, bukan scroll horizontal) — sudah dikunci di Bab 7 |
@@ -338,6 +355,7 @@ Berlaku untuk seluruh halaman aplikasi, mengacu ke komponen Sneat yang sudah ter
 | Halaman verifikasi publik (`verifikasi_publik.php`) | `layouts-blank.html` juga — halaman ringan, tanpa login, tanpa sidebar |
 
 **Prinsip umum:**
+
 - **Mobile-first** — aplikasi ini didesain untuk dipakai sehari-hari lewat Chrome Android, jadi semua halaman input (terutama form bulk insert iuran) harus nyaman dipakai satu tangan/layar kecil, tombol submit selalu terlihat tanpa perlu scroll jauh
 - **Konsisten satu tema** — semua modul pakai palet warna & komponen Sneat yang sama, tidak bikin style custom yang menyimpang dari tema kecuali benar-benar perlu (kartu anggota, halaman scan QR)
 - **Read-only untuk Pimpinan** — halaman yang diakses Pimpinan (Dashboard, Laporan) menyembunyikan/menonaktifkan semua tombol aksi (tambah/edit/hapus/input), bukan sekadar dibatasi lewat route saja
@@ -347,6 +365,4 @@ Berlaku untuk seluruh halaman aplikasi, mengacu ke komponen Sneat yang sudah ter
 
 ## 10. HAL YANG MASIH PERLU DIKONFIRMASI
 
-- [ ] Download satuan Kartu Anggota: mau **2 file JPG terpisah** (depan.jpg + belakang.jpg) atau **digabung jadi 1 file JPG** (depan-belakang bersisian dalam satu gambar)?
-
-Sisanya sudah terkonfirmasi, termasuk logic QR (kombinasi verifikasi publik + shortcut internal operator), struktur folder, ketentuan UI/UX, nama database (`iuran_dev`), dan baseURL dev (`http://localhost/iuran_dev`). Dokumen ini sudah bisa dilempar ke ChatGPT untuk mulai coding modul inti, termasuk modul Kartu Anggota Kantin (template depan/belakang sudah dibuat, tinggal upload background lewat menu Setting).
+Tidak ada lagi — semua poin sudah terkonfirmasi. Dokumen ini final untuk mulai/lanjut coding (ChatGPT, repo `iurankantin_dev` sudah live dengan struktur sesuai Bab 8).
