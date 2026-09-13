@@ -47,6 +47,12 @@ $routes->group('', ['filter' => 'operator'], static function (RouteCollection $r
 
     $routes->get('setting', 'Setting::index');
     $routes->post('setting/update', 'Setting::update');
+
+    $routes->get('user', 'User::index');
+    $routes->get('user/tambah', 'User::create');
+    $routes->post('user/simpan', 'User::store');
+    $routes->get('user/(:num)/edit', 'User::edit/$1');
+    $routes->post('user/(:num)/update', 'User::update/$1');
 });
 
 $routes->group('laporan', ['filter' => 'auth'], static function (RouteCollection $routes): void {
