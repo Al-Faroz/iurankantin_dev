@@ -29,4 +29,7 @@ $routes->group('', ['filter' => 'operator'], static function (RouteCollection $r
     $routes->get('penjual/(:num)/edit', 'Penjual::edit/$1');
     $routes->post('penjual/(:num)/update', 'Penjual::update/$1');
     $routes->get('penjual/(:num)', 'Penjual::show/$1');
+
+    $routes->get('iuran', 'Iuran::index');
+    $routes->post('iuran/simpan', 'Iuran::store');
 });
