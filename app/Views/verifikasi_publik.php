@@ -4,7 +4,7 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
     <title><?= esc($title) ?> | MTsN 4 Jombang</title>
-    <link rel="icon" type="image/x-icon" href="<?= esc($baseUrl) ?>/favicon.ico">
+    <?= $this->include('layout_favicon') ?>
     <link rel="stylesheet" href="<?= esc($baseUrl) ?>/assets/vendor/fonts/iconify-icons.css">
     <link rel="stylesheet" href="<?= esc($baseUrl) ?>/assets/vendor/css/core.css">
     <link rel="stylesheet" href="<?= esc($baseUrl) ?>/assets/css/demo.css">
