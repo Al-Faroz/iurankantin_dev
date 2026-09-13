@@ -8,6 +8,10 @@ $routes->get('login', 'Auth::login', ['as' => 'login']);
 $routes->post('login', 'Auth::attempt');
 $routes->post('logout', 'Auth::logout');
 
+// Verifikasi QR bersifat publik. Controller akan mengarahkan Operator yang sudah login
+// ke detail internal penjual, sedangkan pengunjung umum hanya melihat data minimum.
+$routes->get('verifikasi/(:segment)', 'Verifikasi::kartu/$1');
+
 $routes->get('dashboard', 'Dashboard::index', ['filter' => 'auth']);
 
 $routes->group('', ['filter' => 'operator'], static function (RouteCollection $routes): void {
@@ -44,6 +48,15 @@ $routes->group('', ['filter' => 'operator'], static function (RouteCollection $r
     $routes->post('setoran/cetak-pdf', 'Setoran::cetakPdf');
     $routes->get('setoran/input', 'Setoran::input');
     $routes->post('setoran/simpan', 'Setoran::store');
+
+    $routes->get('kartu', 'KartuAnggota::index');
+    $routes->get('kartu/scan', 'KartuAnggota::scan');
+    $routes->post('kartu/(:num)/generate', 'KartuAnggota::generate/$1');
+    $routes->post('kartu/(:num)/regenerate', 'KartuAnggota::regenerate/$1');
+    $routes->get('kartu/(:num)/depan.jpg', 'KartuAnggota::downloadFront/$1');
+    $routes->get('kartu/(:num)/lengkap.zip', 'KartuAnggota::downloadComplete/$1');
+    $routes->get('kartu/download/semua-depan.zip', 'KartuAnggota::downloadAllFront');
+    $routes->get('kartu/download/semua-lengkap.zip', 'KartuAnggota::downloadAllComplete');
 
     $routes->get('setting', 'Setting::index');
     $routes->post('setting/update', 'Setting::update');
