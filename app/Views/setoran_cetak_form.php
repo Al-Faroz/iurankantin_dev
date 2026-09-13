@@ -16,7 +16,7 @@ $nominal = old('nominal') ?: '';
                 <p class="text-body-secondary mb-0">Tahap ini hanya membuat PDF. Data belum disimpan ke database dan belum mengurangi saldo kas.</p>
             </div>
             <div class="card-body">
-                <form action="<?= esc($baseUrl) ?>/setoran/cetak-pdf" method="post" target="_blank">
+                <form action="<?= esc($baseUrl) ?>/setoran/cetak-pdf" method="post" id="form-cetak-setoran">
                     <?= csrf_field() ?>
                     <div class="row g-4">
                         <div class="col-12 col-md-6">
@@ -53,5 +53,45 @@ $nominal = old('nominal') ?: '';
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('form-cetak-setoran');
+    const tanggalForm = document.getElementById('tanggal_form');
+    const periodeAwal = document.getElementById('periode_awal');
+    const periodeAkhir = document.getElementById('periode_akhir');
+    const nominal = document.getElementById('nominal');
+
+    if (!form) {
+        return;
+    }
+
+    form.addEventListener('submit', function (event) {
+        if (periodeAwal.value && periodeAkhir.value && periodeAwal.value > periodeAkhir.value) {
+            event.preventDefault();
+
+            if (window.Swal) {
+                Swal.fire({
+                    title: 'Periode tidak valid',
+                    text: 'Periode awal tidak boleh melewati periode akhir.',
+                    icon: 'warning',
+                    confirmButtonText: 'OK'
+                });
+            } else {
+                window.alert('Periode awal tidak boleh melewati periode akhir.');
+            }
+            return;
+        }
+
+        // Response PDF dikirim sebagai attachment. Kosongkan isian setelah permintaan download dikirim.
+        window.setTimeout(function () {
+            tanggalForm.value = '';
+            periodeAwal.value = '';
+            periodeAkhir.value = '';
+            nominal.value = '';
+        }, 150);
+    });
+});
+</script>
 
 <?= $this->include('layout_footer') ?>
