@@ -20,7 +20,7 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
 <div class="card">
     <div class="card-header">
         <h5 class="mb-1">Setoran Tercatat</h5>
-        <p class="text-body-secondary mb-0">Data dapat dikoreksi melalui Edit atau dihapus permanen bila salah input.</p>
+        <p class="text-body-secondary mb-0">Data dapat dicetak ulang, dikoreksi melalui Edit, atau dihapus permanen bila salah input.</p>
     </div>
     <div class="card-datatable table-responsive">
         <table class="table" id="table-setoran">
@@ -43,6 +43,9 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
                     <td><?= esc($row['keterangan'] ?: '-') ?></td>
                     <td><?= esc($row['nama_operator']) ?></td>
                     <td class="text-center text-nowrap">
+                        <a href="<?= esc($baseUrl) ?>/setoran/<?= (int) $row['id_setoran'] ?>/cetak-ulang" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary" title="Cetak ulang form">
+                            <i class="icon-base bx bx-printer"></i>
+                        </a>
                         <a href="<?= esc($baseUrl) ?>/setoran/<?= (int) $row['id_setoran'] ?>/edit" class="btn btn-sm btn-outline-primary" title="Edit setoran">
                             <i class="icon-base bx bx-edit"></i>
                         </a>
