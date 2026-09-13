@@ -1,4 +1,8 @@
-<?php $baseUrl = rtrim((string) config('App')->baseURL, '/'); ?>
+<?php
+$useDataTables = true;
+$dataTableSelector = '#table-riwayat-iuran';
+$baseUrl = rtrim((string) config('App')->baseURL, '/');
+?>
 <?= $this->include('layout_header') ?>
 <?= $this->include('layout_flash') ?>
 
@@ -44,20 +48,18 @@
                 <h5 class="mb-1">Riwayat Iuran Terbaru</h5>
                 <p class="text-body-secondary mb-0">Maksimal 20 transaksi terakhir penjual ini.</p>
             </div>
-            <div class="table-responsive">
-                <table class="table">
+            <div class="card-datatable table-responsive">
+                <table class="table" id="table-riwayat-iuran">
                     <thead><tr><th>Tanggal</th><th>Nominal</th><th>Keterangan</th></tr></thead>
                     <tbody>
                     <?php if ($riwayat): ?>
                         <?php foreach ($riwayat as $row): ?>
                             <tr>
-                                <td><?= esc(date('d-m-Y', strtotime($row['tanggal']))) ?></td>
-                                <td>Rp <?= number_format((float) $row['nominal'], 0, ',', '.') ?></td>
+                                <td data-order="<?= esc($row['tanggal']) ?>"><?= esc(date('d-m-Y', strtotime($row['tanggal']))) ?></td>
+                                <td data-order="<?= esc((string) $row['nominal']) ?>">Rp <?= number_format((float) $row['nominal'], 0, ',', '.') ?></td>
                                 <td><?= esc($row['keterangan'] ?: '-') ?></td>
                             </tr>
                         <?php endforeach; ?>
-                    <?php else: ?>
-                        <tr><td colspan="3" class="text-center text-body-secondary py-5">Belum ada transaksi iuran.</td></tr>
                     <?php endif; ?>
                     </tbody>
                 </table>
