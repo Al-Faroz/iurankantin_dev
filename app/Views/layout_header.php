@@ -58,6 +58,7 @@ $segment1 = request()->getUri()->getSegment(1);
                     <li class="menu-item <?= $segment1 === 'iuran' ? 'active' : '' ?>"><a href="<?= esc($baseUrl) ?>/iuran" class="menu-link"><i class="menu-icon icon-base bx bx-wallet"></i><div>Input Iuran</div></a></li>
                     <li class="menu-item <?= $segment1 === 'pengeluaran' ? 'active' : '' ?>"><a href="<?= esc($baseUrl) ?>/pengeluaran" class="menu-link"><i class="menu-icon icon-base bx bx-receipt"></i><div>Pengeluaran</div></a></li>
                     <li class="menu-item <?= $segment1 === 'setoran' ? 'active' : '' ?>"><a href="<?= esc($baseUrl) ?>/setoran" class="menu-link"><i class="menu-icon icon-base bx bx-transfer"></i><div>Setoran Pimpinan</div></a></li>
+                    <li class="menu-item <?= $segment1 === 'koreksi-transaksi' ? 'active' : '' ?>"><a href="<?= esc($baseUrl) ?>/koreksi-transaksi" class="menu-link"><i class="menu-icon icon-base bx bx-edit-alt"></i><div>Koreksi Transaksi</div></a></li>
 
                     <li class="menu-header small text-uppercase"><span class="menu-header-text">Kartu Kantin</span></li>
                     <li class="menu-item <?= $segment1 === 'kartu' ? 'active' : '' ?>"><a href="<?= esc($baseUrl) ?>/kartu" class="menu-link"><i class="menu-icon icon-base bx bx-id-card"></i><div>Kartu Anggota</div></a></li>
