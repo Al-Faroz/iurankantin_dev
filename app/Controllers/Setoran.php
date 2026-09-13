@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\SetoranPimpinanModel;
 use App\Models\SettingModel;
 use App\Services\PdfService;
+use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\I18n\Time;
 
 class Setoran extends BaseController
@@ -79,6 +80,7 @@ class Setoran extends BaseController
         return view('setoran_input', [
             'title' => 'Input Setoran Resmi',
             'tanggalDefault' => Time::now('Asia/Jakarta')->toDateString(),
+            'setoran' => null,
         ]);
     }
 
@@ -88,23 +90,74 @@ class Setoran extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $periodeAwal = (string) $this->request->getPost('periode_awal');
-        $periodeAkhir = (string) $this->request->getPost('periode_akhir');
-        if ($periodeAwal > $periodeAkhir) {
+        $payload = $this->payload();
+        if ($payload['periode_awal'] > $payload['periode_akhir']) {
             return redirect()->back()->withInput()->with('error', 'Periode awal tidak boleh melewati periode akhir.');
         }
 
-        $this->model->insert([
-            'tanggal_form' => (string) $this->request->getPost('tanggal_form'),
-            'periode_awal' => $periodeAwal,
-            'periode_akhir' => $periodeAkhir,
-            'nominal' => (float) $this->request->getPost('nominal'),
-            'keterangan' => trim((string) $this->request->getPost('keterangan')) ?: null,
-            'id_operator' => (int) session()->get('id_user'),
-            'created_at' => date('Y-m-d H:i:s'),
-        ]);
+        $payload['id_operator'] = (int) session()->get('id_user');
+        $payload['created_at'] = date('Y-m-d H:i:s');
+        $this->model->insert($payload);
 
         return redirect()->to($this->baseUrl . '/setoran')->with('success', 'Setoran resmi berhasil dicatat ke database.');
+    }
+
+    public function edit(int $id)
+    {
+        $setoran = $this->model->find($id);
+        if ($setoran === null) {
+            throw PageNotFoundException::forPageNotFound('Setoran pimpinan tidak ditemukan.');
+        }
+
+        return view('setoran_input', [
+            'title' => 'Edit Setoran Pimpinan',
+            'tanggalDefault' => Time::now('Asia/Jakarta')->toDateString(),
+            'setoran' => $setoran,
+        ]);
+    }
+
+    public function update(int $id)
+    {
+        if ($this->model->find($id) === null) {
+            throw PageNotFoundException::forPageNotFound('Setoran pimpinan tidak ditemukan.');
+        }
+
+        if (! $this->validate($this->rules(true))) {
+            return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
+        }
+
+        $payload = $this->payload();
+        if ($payload['periode_awal'] > $payload['periode_akhir']) {
+            return redirect()->back()->withInput()->with('error', 'Periode awal tidak boleh melewati periode akhir.');
+        }
+
+        // id_operator dan created_at dipertahankan sebagai jejak pencatat awal.
+        $this->model->update($id, $payload);
+
+        return redirect()->to($this->baseUrl . '/setoran')->with('success', 'Setoran pimpinan berhasil diperbarui.');
+    }
+
+    public function hapus(int $id)
+    {
+        if ($this->model->find($id) === null) {
+            throw PageNotFoundException::forPageNotFound('Setoran pimpinan tidak ditemukan.');
+        }
+
+        // Setoran merupakan transaksi. Koreksi data salah menggunakan hard delete sesuai kebutuhan aplikasi.
+        $this->model->delete($id, true);
+
+        return redirect()->to($this->baseUrl . '/setoran')->with('success', 'Setoran pimpinan berhasil dihapus permanen.');
+    }
+
+    private function payload(): array
+    {
+        return [
+            'tanggal_form' => (string) $this->request->getPost('tanggal_form'),
+            'periode_awal' => (string) $this->request->getPost('periode_awal'),
+            'periode_akhir' => (string) $this->request->getPost('periode_akhir'),
+            'nominal' => (float) $this->request->getPost('nominal'),
+            'keterangan' => trim((string) $this->request->getPost('keterangan')) ?: null,
+        ];
     }
 
     private function rules(bool $withKeterangan): array
