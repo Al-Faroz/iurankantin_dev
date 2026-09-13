@@ -32,6 +32,8 @@ $routes->group('', ['filter' => 'operator'], static function (RouteCollection $r
 
     $routes->get('iuran', 'Iuran::index');
     $routes->post('iuran/simpan', 'Iuran::store');
+    $routes->get('iuran/form-mingguan', 'Iuran::formMingguan');
+    $routes->post('iuran/form-mingguan/pdf', 'Iuran::cetakFormMingguan');
 
     $routes->get('pengeluaran', 'Pengeluaran::index');
     $routes->get('pengeluaran/tambah', 'Pengeluaran::create');
