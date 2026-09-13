@@ -23,7 +23,7 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
                     <th style="width:70px">No</th>
                     <th>Nama Golongan</th>
                     <th>Nominal Iuran</th>
-                    <th class="no-sort text-center" style="width:120px">Aksi</th>
+                    <th class="no-sort text-center" style="width:150px">Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -32,10 +32,20 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
                         <td><?= $index + 1 ?></td>
                         <td class="fw-semibold"><?= esc($row['nama_golongan']) ?></td>
                         <td data-order="<?= esc((string) $row['nominal_iuran']) ?>">Rp <?= number_format((float) $row['nominal_iuran'], 0, ',', '.') ?></td>
-                        <td class="text-center">
+                        <td class="text-center text-nowrap">
                             <a href="<?= esc($baseUrl) ?>/golongan/<?= (int) $row['id_golongan'] ?>/edit" class="btn btn-sm btn-outline-primary" title="Edit">
                                 <i class="icon-base bx bx-edit"></i>
                             </a>
+                            <form action="<?= esc($baseUrl) ?>/golongan/<?= (int) $row['id_golongan'] ?>/arsipkan"
+                                  method="post" class="d-inline"
+                                  data-confirm-title="Arsipkan golongan?"
+                                  data-confirm-text="Golongan tidak lagi muncul di master data. Riwayat lama tetap tersimpan."
+                                  data-confirm-button="Ya, arsipkan">
+                                <?= csrf_field() ?>
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Arsipkan">
+                                    <i class="icon-base bx bx-archive"></i>
+                                </button>
+                            </form>
                         </td>
                     </tr>
                 <?php endforeach; ?>
