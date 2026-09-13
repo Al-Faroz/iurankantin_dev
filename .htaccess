@@ -7,14 +7,15 @@ Options -Indexes
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
-    # Framework/application source and runtime directories must never be public.
-    RewriteRule ^(?:app|vendor|writable|tests)(?:/|$) - [F,L,NC]
+    # Framework/application source, runtime, development, and project tooling
+    # must never be served directly from the web root.
+    RewriteRule ^(?:app|vendor|writable|tests|docs|scripts|\.github|\.git)(?:/|$) - [F,L,NC]
 
     # Sensitive project/configuration files in document root.
-    RewriteRule ^(?:\.env|composer\.(?:json|lock)|spark|phpunit\.xml(?:\.dist)?|LICENSE|preload\.php)$ - [F,L,NC]
+    RewriteRule ^(?:\.env(?:\..*)?|\.gitignore|env|README(?:\.md)?|composer\.(?:json|lock)|spark|builds|phpunit\.xml(?:\.dist)?|phpunit\.dist\.xml|LICENSE|preload\.php)$ - [F,L,NC]
 </IfModule>
 
-<FilesMatch "^\.env(?:\..*)?$">
+<FilesMatch "^(?:\.env(?:\..*)?|\.gitignore|env|README(?:\.md)?|composer\.(?:json|lock)|spark|builds|phpunit\.xml(?:\.dist)?|phpunit\.dist\.xml|LICENSE|preload\.php)$">
     Require all denied
 </FilesMatch>
 
@@ -25,17 +26,12 @@ Options -Indexes
     Options +FollowSymlinks
     RewriteEngine On
 
-    # If you installed CodeIgniter in a subfolder, baseURL in .env must include it.
+    # Jika aplikasi ditempatkan di subfolder, app.baseURL pada .env harus ikut subfolder tersebut.
 
     # Redirect trailing slashes for non-directories.
     RewriteCond %{REQUEST_FILENAME} !-d
     RewriteCond %{REQUEST_URI} (.+)/$
     RewriteRule ^ %1 [L,R=301]
-
-    # Rewrite "www.example.com -> example.com" when HTTP is used.
-    RewriteCond %{HTTPS} !=on
-    RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
-    RewriteRule ^ http://%1%{REQUEST_URI} [R=301,L]
 
     # Serve existing static files/directories directly; everything else goes to CI4.
     RewriteCond %{REQUEST_FILENAME} !-f
