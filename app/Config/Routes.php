@@ -37,6 +37,12 @@ $routes->group('', ['filter' => 'operator'], static function (RouteCollection $r
     $routes->get('pengeluaran/tambah', 'Pengeluaran::create');
     $routes->post('pengeluaran/simpan', 'Pengeluaran::store');
 
+    $routes->get('setoran', 'Setoran::index');
+    $routes->get('setoran/cetak', 'Setoran::cetakForm');
+    $routes->post('setoran/cetak-pdf', 'Setoran::cetakPdf');
+    $routes->get('setoran/input', 'Setoran::input');
+    $routes->post('setoran/simpan', 'Setoran::store');
+
     $routes->get('setting', 'Setting::index');
     $routes->post('setting/update', 'Setting::update');
 });
