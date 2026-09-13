@@ -15,6 +15,45 @@ document.addEventListener('DOMContentLoaded', function () {
 
 (function () {
   const MENU_STATE_KEY = 'iuran-kantin-menu-collapsed';
+  const root = document.documentElement;
+
+  function isDesktop() {
+    return window.matchMedia('(min-width: 1200px)').matches;
+  }
+
+  function setDesktopCollapsed(collapsed, persist = true) {
+    if (!isDesktop()) {
+      return;
+    }
+
+    root.classList.remove('layout-menu-hover');
+    root.classList.add('layout-transitioning');
+    root.classList.toggle('layout-menu-collapsed', collapsed);
+
+    if (persist) {
+      window.localStorage.setItem(MENU_STATE_KEY, collapsed ? '1' : '0');
+    }
+
+    window.setTimeout(function () {
+      root.classList.remove('layout-transitioning');
+      window.dispatchEvent(new Event('resize'));
+    }, 350);
+  }
+
+  function toggleMenu() {
+    if (isDesktop()) {
+      setDesktopCollapsed(!root.classList.contains('layout-menu-collapsed'));
+      return;
+    }
+
+    // Mobile tetap menggunakan mekanisme overlay bawaan Sneat.
+    window.Helpers.toggleCollapsed();
+  }
+
+  // Terapkan state desktop sebelum interaksi agar perpindahan halaman tidak mengubah lebar sidebar.
+  if (isDesktop()) {
+    setDesktopCollapsed(window.localStorage.getItem(MENU_STATE_KEY) === '1', false);
+  }
 
   // Initialize menu
   let layoutMenuEl = document.querySelectorAll('#layout-menu');
@@ -27,32 +66,19 @@ document.addEventListener('DOMContentLoaded', function () {
     window.Helpers.mainMenu = menu;
   });
 
-  // Initialize menu togglers and bind click on each
-  let menuToggler = document.querySelectorAll('.layout-menu-toggle');
-  menuToggler.forEach(item => {
-    item.addEventListener('click', event => {
+  // Initialize menu togglers and bind click on each.
+  document.querySelectorAll('.layout-menu-toggle').forEach(function (item) {
+    item.addEventListener('click', function (event) {
       event.preventDefault();
-      window.Helpers.toggleCollapsed();
-
-      // Simpan pilihan collapse hanya pada desktop. Mobile tetap mengikuti overlay Sneat.
-      if (!window.Helpers.isSmallScreen()) {
-        window.setTimeout(function () {
-          const isCollapsed = document.documentElement.classList.contains('layout-menu-collapsed');
-          window.localStorage.setItem(MENU_STATE_KEY, isCollapsed ? '1' : '0');
-        }, 350);
-      }
+      toggleMenu();
     });
   });
 
-  // Display menu toggle on hover with delay
+  // Display menu toggle on hover with delay.
   let delay = function (elem, callback) {
     let timeout = null;
     elem.onmouseenter = function () {
-      if (!Helpers.isSmallScreen()) {
-        timeout = setTimeout(callback, 300);
-      } else {
-        timeout = setTimeout(callback, 0);
-      }
+      timeout = setTimeout(callback, Helpers.isSmallScreen() ? 0 : 300);
     };
 
     elem.onmouseleave = function () {
@@ -75,7 +101,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Display shadow when menu scrolls
+  // Display shadow when menu scrolls.
   let menuInnerContainer = document.getElementsByClassName('menu-inner'),
     menuInnerShadow = document.getElementsByClassName('menu-inner-shadow')[0];
   if (menuInnerContainer.length > 0 && menuInnerShadow) {
@@ -89,7 +115,7 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  // Init helpers & misc
+  // Init helpers & misc.
   window.Helpers.setAutoUpdate(true);
 
   const tooltipTriggerList = [].slice.call(document.querySelectorAll('[data-bs-toggle="tooltip"]'));
@@ -105,8 +131,7 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   };
 
-  const accordionTriggerList = [].slice.call(document.querySelectorAll('.accordion'));
-  accordionTriggerList.map(function (accordionTriggerEl) {
+  [].slice.call(document.querySelectorAll('.accordion')).map(function (accordionTriggerEl) {
     accordionTriggerEl.addEventListener('show.bs.collapse', accordionActiveFunction);
     accordionTriggerEl.addEventListener('hide.bs.collapse', accordionActiveFunction);
     return accordionTriggerEl;
@@ -115,14 +140,15 @@ document.addEventListener('DOMContentLoaded', function () {
   window.Helpers.initPasswordToggle();
   window.Helpers.initSpeechToText();
 
-  // Mobile menggunakan overlay. Desktop menyimpan pilihan expanded/collapsed user.
-  if (window.Helpers.isSmallScreen()) {
-    return;
-  }
-
-  const savedState = window.localStorage.getItem(MENU_STATE_KEY);
-  const shouldCollapse = savedState === '1';
-  window.Helpers.setCollapsed(shouldCollapse, false);
+  // Saat breakpoint berubah, desktop mengembalikan state tersimpan; mobile dibersihkan dari class desktop.
+  window.addEventListener('resize', function () {
+    if (isDesktop()) {
+      const collapsed = window.localStorage.getItem(MENU_STATE_KEY) === '1';
+      root.classList.toggle('layout-menu-collapsed', collapsed);
+    } else {
+      root.classList.remove('layout-menu-collapsed', 'layout-transitioning', 'layout-menu-hover');
+    }
+  });
 })();
 
 function isMacOS() {
