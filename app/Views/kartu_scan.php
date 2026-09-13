@@ -49,8 +49,8 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
 <script>
 window.KARTU_SCAN_BASE_URL = <?= json_encode($baseUrl, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE) ?>;
 </script>
-<!-- jsQR harus disimpan lokal. Jika asset belum tersedia, Chrome/Chromium dapat memakai BarcodeDetector sebagai fallback. -->
-<script src="<?= esc($baseUrl) ?>/assets-app/qrcode-lib/jsQR.min.js" onerror="this.remove()"></script>
+<!-- jsQR dipin lokal. Chrome/Chromium juga mempunyai fallback BarcodeDetector bila tersedia. -->
+<script src="<?= esc($baseUrl) ?>/assets-app/qrcode-lib/jsQR.js" onerror="this.remove()"></script>
 <script src="<?= esc($baseUrl) ?>/assets-app/qrcode-lib/kartu-scanner.js"></script>
 
 <?= $this->include('layout_footer') ?>
