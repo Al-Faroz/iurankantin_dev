@@ -36,4 +36,7 @@ $routes->group('', ['filter' => 'operator'], static function (RouteCollection $r
     $routes->get('pengeluaran', 'Pengeluaran::index');
     $routes->get('pengeluaran/tambah', 'Pengeluaran::create');
     $routes->post('pengeluaran/simpan', 'Pengeluaran::store');
+
+    $routes->get('setting', 'Setting::index');
+    $routes->post('setting/update', 'Setting::update');
 });
