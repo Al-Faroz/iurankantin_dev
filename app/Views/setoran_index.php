@@ -20,7 +20,7 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
 <div class="card">
     <div class="card-header">
         <h5 class="mb-1">Setoran Tercatat</h5>
-        <p class="text-body-secondary mb-0">Hanya data tahap kedua yang tersimpan di database dan mengurangi saldo kas.</p>
+        <p class="text-body-secondary mb-0">Data dapat dikoreksi melalui Edit atau dihapus permanen bila salah input.</p>
     </div>
     <div class="card-datatable table-responsive">
         <table class="table" id="table-setoran">
@@ -31,6 +31,7 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
                     <th>Nominal</th>
                     <th>Keterangan</th>
                     <th>Operator</th>
+                    <th class="no-sort no-filter text-center">Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -41,6 +42,20 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
                     <td data-order="<?= esc((string) $row['nominal']) ?>">Rp <?= number_format((float) $row['nominal'], 0, ',', '.') ?></td>
                     <td><?= esc($row['keterangan'] ?: '-') ?></td>
                     <td><?= esc($row['nama_operator']) ?></td>
+                    <td class="text-center text-nowrap">
+                        <a href="<?= esc($baseUrl) ?>/setoran/<?= (int) $row['id_setoran'] ?>/edit" class="btn btn-sm btn-outline-primary" title="Edit setoran">
+                            <i class="icon-base bx bx-edit"></i>
+                        </a>
+                        <form action="<?= esc($baseUrl) ?>/setoran/<?= (int) $row['id_setoran'] ?>/hapus" method="post" class="d-inline"
+                              data-confirm-title="Hapus setoran?"
+                              data-confirm-text="Setoran Rp <?= number_format((float) $row['nominal'], 0, ',', '.') ?> akan dihapus permanen dan saldo kas langsung berubah."
+                              data-confirm-button="Ya, hapus permanen">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus permanen">
+                                <i class="icon-base bx bx-trash"></i>
+                            </button>
+                        </form>
+                    </td>
                 </tr>
             <?php endforeach; ?>
             </tbody>
