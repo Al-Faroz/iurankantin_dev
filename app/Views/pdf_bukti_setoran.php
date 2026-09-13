@@ -12,9 +12,13 @@ $nominalCetak = 'Rp. ' . number_format((float) $nominal, 0, ',', '.') . ',-';
     <meta charset="utf-8">
     <title>Form Setoran Kas Kantin</title>
     <style>
+        /*
+         * Margin dibuat secara struktural pada .print-area, bukan hanya @page.
+         * Ini lebih aman untuk Dompdf dan printer yang memiliki non-printable area.
+         */
         @page {
             size: A4 portrait;
-            margin: 5mm 6mm;
+            margin: 0;
         }
 
         * {
@@ -32,6 +36,11 @@ $nominalCetak = 'Rp. ' . number_format((float) $nominal, 0, ',', '.') . ',-';
             font-size: 8.5pt;
             line-height: 1.2;
             color: #111;
+        }
+
+        .print-area {
+            width: 186mm;
+            margin: 10mm auto 0;
         }
 
         .voucher-wrap {
@@ -127,13 +136,14 @@ $nominalCetak = 'Rp. ' . number_format((float) $nominal, 0, ',', '.') . ',-';
         }
 
         .copy-gap {
-            height: 7mm;
+            height: 6mm;
             border-bottom: 0.5pt dashed #999;
-            margin-bottom: 7mm;
+            margin-bottom: 6mm;
         }
     </style>
 </head>
 <body>
+<div class="print-area">
 <?php for ($copy = 0; $copy < 2; $copy++): ?>
     <div class="voucher-wrap">
         <table class="voucher">
@@ -187,5 +197,6 @@ $nominalCetak = 'Rp. ' . number_format((float) $nominal, 0, ',', '.') . ',-';
         <div class="copy-gap"></div>
     <?php endif; ?>
 <?php endfor; ?>
+</div>
 </body>
 </html>
