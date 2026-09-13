@@ -8,19 +8,24 @@ class Auth extends BaseController
 {
     public function login()
     {
+        $baseUrl = rtrim((string) config('App')->baseURL, '/');
+
         if (session()->get('is_logged_in')) {
-            return redirect()->to(base_url('dashboard'));
+            return redirect()->to($baseUrl . '/dashboard');
         }
 
         return view('auth_login', [
             'title' => 'Login',
+            'baseUrl' => $baseUrl,
         ]);
     }
 
     public function attempt()
     {
+        $baseUrl = rtrim((string) config('App')->baseURL, '/');
+
         if (session()->get('is_logged_in')) {
-            return redirect()->to(base_url('dashboard'));
+            return redirect()->to($baseUrl . '/dashboard');
         }
 
         $rules = [
@@ -54,13 +59,14 @@ class Auth extends BaseController
             'is_logged_in' => true,
         ]);
 
-        return redirect()->to(base_url('dashboard'));
+        return redirect()->to($baseUrl . '/dashboard');
     }
 
     public function logout()
     {
+        $baseUrl = rtrim((string) config('App')->baseURL, '/');
         session()->destroy();
 
-        return redirect()->to(base_url('login'));
+        return redirect()->to($baseUrl . '/login');
     }
 }
