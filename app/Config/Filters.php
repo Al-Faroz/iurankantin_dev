@@ -41,6 +41,9 @@ class Filters extends BaseFilters
         'after' => [],
     ];
 
-    public array $methods = [];
+    public array $methods = [
+        'POST' => ['csrf'],
+    ];
+
     public array $filters = [];
 }
