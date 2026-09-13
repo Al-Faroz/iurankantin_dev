@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 jobs:
-  php-check:
+  app-check:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -22,6 +22,11 @@ jobs:
           php-version: '8.2'
           extensions: intl, mbstring, mysqli, gd, zip
           coverage: none
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
 
       - name: Validate Composer
         run: composer validate --no-check-publish
@@ -36,6 +41,11 @@ jobs:
           while IFS= read -r -d '' file; do
             php -l "$file" >/dev/null
           done < <(find app -type f -name '*.php' -print0)
+
+      - name: JavaScript syntax lint
+        run: |
+          node --check assets/js/main.js
+          node --check assets-app/qrcode-lib/kartu-scanner.js
 
       - name: Route compilation check
         run: php spark routes
