@@ -1,3 +1,7 @@
-<Files *.php>
-Require all denied
-</Files>
+Options -Indexes
+
+# Folder uploads hanya untuk file media. Blokir ekstensi script/executable yang
+# umum agar file upload tidak dapat dieksekusi walaupun validasi aplikasi gagal.
+<FilesMatch "\.(?:php[0-9]?|phtml|phar|cgi|pl|py|sh|bash|cmd|bat)$">
+    Require all denied
+</FilesMatch>
