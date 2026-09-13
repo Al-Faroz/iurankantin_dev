@@ -14,22 +14,34 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
     </div>
 </div>
 
+<div class="card mb-4">
+    <div class="card-body">
+        <form method="get" action="<?= esc($baseUrl) ?>/koreksi-transaksi" class="row g-3 align-items-end">
+            <div class="col-12 col-sm-5">
+                <label class="form-label" for="tanggal_awal">Tanggal Awal</label>
+                <input type="date" id="tanggal_awal" name="tanggal_awal" class="form-control" value="<?= esc($filter['tanggal_awal']) ?>" required>
+            </div>
+            <div class="col-12 col-sm-5">
+                <label class="form-label" for="tanggal_akhir">Tanggal Akhir</label>
+                <input type="date" id="tanggal_akhir" name="tanggal_akhir" class="form-control" value="<?= esc($filter['tanggal_akhir']) ?>" required>
+            </div>
+            <div class="col-12 col-sm-2 d-grid">
+                <button type="submit" class="btn btn-primary"><i class="icon-base bx bx-filter-alt me-1"></i>Terapkan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="card">
     <div class="card-header">
         <h5 class="mb-1">Koreksi Transaksi</h5>
-        <p class="text-body-secondary mb-0">Menampilkan maksimal 200 transaksi terbaru untuk setiap jenis transaksi.</p>
+        <p class="text-body-secondary mb-0">Periode <?= esc(date('d-m-Y', strtotime($filter['tanggal_awal']))) ?> s.d. <?= esc(date('d-m-Y', strtotime($filter['tanggal_akhir']))) ?>.</p>
     </div>
     <div class="card-body pt-0">
         <ul class="nav nav-pills flex-column flex-sm-row gap-2 mb-4" role="tablist">
-            <li class="nav-item" role="presentation">
-                <button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-iuran" type="button" role="tab">Iuran</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-pengeluaran" type="button" role="tab">Pengeluaran</button>
-            </li>
-            <li class="nav-item" role="presentation">
-                <button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-setoran" type="button" role="tab">Setoran</button>
-            </li>
+            <li class="nav-item" role="presentation"><button class="nav-link active" data-bs-toggle="tab" data-bs-target="#tab-iuran" type="button" role="tab">Iuran (<?= count($iuran) ?>)</button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-pengeluaran" type="button" role="tab">Pengeluaran (<?= count($pengeluaran) ?>)</button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link" data-bs-toggle="tab" data-bs-target="#tab-setoran" type="button" role="tab">Setoran (<?= count($setoran) ?>)</button></li>
         </ul>
 
         <div class="tab-content p-0">
@@ -51,7 +63,9 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
                                           data-confirm-text="Transaksi <?= esc($row['nama_penjual'], 'attr') ?> sebesar Rp <?= number_format((float) $row['nominal'], 0, ',', '.') ?> akan dihapus permanen."
                                           data-confirm-button="Ya, hapus permanen">
                                         <?= csrf_field() ?>
-                                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="icon-base bx bx-trash"></i></button>
+                                        <input type="hidden" name="tanggal_awal" value="<?= esc($filter['tanggal_awal']) ?>">
+                                        <input type="hidden" name="tanggal_akhir" value="<?= esc($filter['tanggal_akhir']) ?>">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus permanen"><i class="icon-base bx bx-trash"></i></button>
                                     </form>
                                 </td>
                             </tr>
@@ -79,7 +93,9 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
                                           data-confirm-text="Pengeluaran <?= esc($row['nama_kategori'], 'attr') ?> sebesar Rp <?= number_format((float) $row['nominal'], 0, ',', '.') ?> akan dihapus permanen dan nota terkait ikut dibersihkan."
                                           data-confirm-button="Ya, hapus permanen">
                                         <?= csrf_field() ?>
-                                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="icon-base bx bx-trash"></i></button>
+                                        <input type="hidden" name="tanggal_awal" value="<?= esc($filter['tanggal_awal']) ?>">
+                                        <input type="hidden" name="tanggal_akhir" value="<?= esc($filter['tanggal_akhir']) ?>">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus permanen"><i class="icon-base bx bx-trash"></i></button>
                                     </form>
                                 </td>
                             </tr>
@@ -107,7 +123,9 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
                                           data-confirm-text="Setoran sebesar Rp <?= number_format((float) $row['nominal'], 0, ',', '.') ?> akan dihapus permanen dan saldo kas akan dihitung kembali."
                                           data-confirm-button="Ya, hapus permanen">
                                         <?= csrf_field() ?>
-                                        <button type="submit" class="btn btn-sm btn-outline-danger"><i class="icon-base bx bx-trash"></i></button>
+                                        <input type="hidden" name="tanggal_awal" value="<?= esc($filter['tanggal_awal']) ?>">
+                                        <input type="hidden" name="tanggal_akhir" value="<?= esc($filter['tanggal_akhir']) ?>">
+                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Hapus permanen"><i class="icon-base bx bx-trash"></i></button>
                                     </form>
                                 </td>
                             </tr>
