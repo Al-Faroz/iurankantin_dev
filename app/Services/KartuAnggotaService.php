@@ -26,18 +26,28 @@ class KartuAnggotaService
         $this->qrService = new QrService();
     }
 
-    public function ensureCodes(int $idPenjual, bool $regenerate = false): array
+    public function ensureCodes(int $idPenjual, bool $regenerateVerification = false): array
     {
         $penjual = $this->penjualModel->find($idPenjual);
         if ($penjual === null) {
             throw PageNotFoundException::forPageNotFound('Penjual tidak ditemukan.');
         }
 
-        if ($regenerate || empty($penjual['kode_kartu']) || empty($penjual['kode_verifikasi'])) {
-            $this->penjualModel->update($idPenjual, [
-                'kode_kartu' => 'KTK-' . str_pad((string) $idPenjual, 4, '0', STR_PAD_LEFT) . '-' . date('Y'),
-                'kode_verifikasi' => bin2hex(random_bytes(32)),
-            ]);
+        $update = [];
+
+        // Kode kartu dibuat sekali dan dipertahankan selama data penjual masih sama.
+        if (empty($penjual['kode_kartu'])) {
+            $update['kode_kartu'] = 'KTK-' . str_pad((string) $idPenjual, 4, '0', STR_PAD_LEFT) . '-' . date('Y');
+        }
+
+        // Token verifikasi boleh diregenerate. Unique index di database menjadi lapisan
+        // perlindungan tambahan terhadap benturan token yang secara praktis sudah sangat kecil.
+        if ($regenerateVerification || empty($penjual['kode_verifikasi'])) {
+            $update['kode_verifikasi'] = bin2hex(random_bytes(32));
+        }
+
+        if ($update !== []) {
+            $this->penjualModel->update($idPenjual, $update);
         }
 
         return $this->detail($idPenjual);
