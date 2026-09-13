@@ -48,3 +48,14 @@ $routes->group('', ['filter' => 'operator'], static function (RouteCollection $r
     $routes->get('setting', 'Setting::index');
     $routes->post('setting/update', 'Setting::update');
 });
+
+$routes->group('laporan', ['filter' => 'auth'], static function (RouteCollection $routes): void {
+    $routes->get('iuran', 'Laporan::iuran');
+    $routes->get('iuran/export', 'Laporan::exportIuran');
+    $routes->get('pengeluaran', 'Laporan::pengeluaran');
+    $routes->get('pengeluaran/export', 'Laporan::exportPengeluaran');
+    $routes->get('setoran', 'Laporan::setoran');
+    $routes->get('setoran/export', 'Laporan::exportSetoran');
+    $routes->get('rekap-kas', 'Laporan::rekapKas');
+    $routes->get('rekap-kas/export', 'Laporan::exportRekapKas');
+});
