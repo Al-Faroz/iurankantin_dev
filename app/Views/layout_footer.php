@@ -85,7 +85,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const filterBox = document.createElement('div');
         filterBox.className = 'datatable-column-filters row g-2 px-3 pt-3';
 
-        // Letakkan filter sebelum DataTables membungkus elemen table.
         if (originalParent) {
             originalParent.insertBefore(filterBox, table);
         }
@@ -96,16 +95,88 @@ document.addEventListener('DOMContentLoaded', function () {
             pageLength: 10,
             lengthMenu: [10, 25, 50, 100],
             order: [],
+            layout: {
+                topStart: 'pageLength',
+                topEnd: 'search',
+                bottomStart: null,
+                bottomEnd: null
+            },
             columnDefs: [{ targets: 'no-sort', orderable: false }],
             language: {
                 search: 'Cari semua:',
                 lengthMenu: 'Tampilkan _MENU_ data',
-                info: 'Menampilkan _START_–_END_ dari _TOTAL_ data',
-                infoEmpty: 'Tidak ada data',
-                zeroRecords: 'Data tidak ditemukan',
-                paginate: { previous: 'Sebelumnya', next: 'Berikutnya' }
+                zeroRecords: 'Data tidak ditemukan'
             }
         });
+
+        const pagerHost = document.createElement('div');
+        pagerHost.className = 'd-flex flex-column flex-sm-row align-items-sm-center justify-content-between gap-2 px-3 py-3 border-top';
+
+        const pagerInfo = document.createElement('div');
+        pagerInfo.className = 'small text-body-secondary';
+
+        const pagerNav = document.createElement('nav');
+        pagerNav.setAttribute('aria-label', 'Navigasi halaman tabel');
+        const pagerList = document.createElement('ul');
+        pagerList.className = 'pagination pagination-sm mb-0 flex-wrap';
+        pagerNav.appendChild(pagerList);
+        pagerHost.appendChild(pagerInfo);
+        pagerHost.appendChild(pagerNav);
+
+        const tableContainer = dt.table().container();
+        tableContainer.appendChild(pagerHost);
+
+        const addPageButton = function (label, pageIndex, disabled, active, ariaLabel) {
+            const item = document.createElement('li');
+            item.className = 'page-item' + (disabled ? ' disabled' : '') + (active ? ' active' : '');
+
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'page-link';
+            button.textContent = label;
+            if (ariaLabel) {
+                button.setAttribute('aria-label', ariaLabel);
+            }
+            if (active) {
+                button.setAttribute('aria-current', 'page');
+            }
+            button.disabled = disabled;
+
+            if (!disabled && !active) {
+                button.addEventListener('click', function () {
+                    dt.page(pageIndex).draw('page');
+                });
+            }
+
+            item.appendChild(button);
+            pagerList.appendChild(item);
+        };
+
+        const renderPager = function () {
+            const info = dt.page.info();
+            const totalPages = Math.max(1, info.pages || 0);
+            const currentPage = Math.min(info.page || 0, totalPages - 1);
+            const shownStart = info.recordsDisplay > 0 ? info.start + 1 : 0;
+
+            pagerInfo.textContent = 'Menampilkan ' + shownStart + '–' + info.end + ' dari ' + info.recordsDisplay + ' data';
+            pagerList.innerHTML = '';
+
+            addPageButton('Sebelumnya', Math.max(0, currentPage - 1), currentPage <= 0, false, 'Halaman sebelumnya');
+
+            const maxButtons = 5;
+            let firstPage = Math.max(0, currentPage - Math.floor(maxButtons / 2));
+            let lastPage = Math.min(totalPages - 1, firstPage + maxButtons - 1);
+            firstPage = Math.max(0, lastPage - maxButtons + 1);
+
+            for (let page = firstPage; page <= lastPage; page++) {
+                addPageButton(String(page + 1), page, false, page === currentPage, 'Halaman ' + (page + 1));
+            }
+
+            addPageButton('Berikutnya', Math.min(totalPages - 1, currentPage + 1), currentPage >= totalPages - 1, false, 'Halaman berikutnya');
+        };
+
+        dt.on('draw', renderPager);
+        renderPager();
 
         headers.forEach(function (header, columnIndex) {
             if (header.classList.contains('no-sort') || header.classList.contains('no-filter')) {
