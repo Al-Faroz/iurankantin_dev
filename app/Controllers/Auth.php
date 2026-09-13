@@ -28,6 +28,16 @@ class Auth extends BaseController
             return redirect()->to($baseUrl . '/dashboard');
         }
 
+        // Batasi brute-force login tanpa dependency tambahan. File cache CI4 menjadi
+        // backend throttler; bucket di-reset setelah autentikasi berhasil.
+        $throttler = service('throttler');
+        $throttleKey = 'login-' . hash('sha256', (string) $this->request->getIPAddress());
+        if (! $throttler->check($throttleKey, 10, MINUTE)) {
+            return redirect()->back()
+                ->withInput()
+                ->with('error', 'Terlalu banyak percobaan login. Tunggu sebentar lalu coba kembali.');
+        }
+
         $rules = [
             'username' => 'required|min_length[3]|max_length[50]',
             'password' => 'required|min_length[6]|max_length[255]',
@@ -50,6 +60,7 @@ class Auth extends BaseController
                 ->with('error', 'Username atau password tidak sesuai.');
         }
 
+        $throttler->remove($throttleKey);
         session()->regenerate(true);
         session()->set([
             'id_user' => (int) $user['id_user'],
