@@ -51,6 +51,7 @@ $routes->group('', ['filter' => 'operator'], static function (RouteCollection $r
     $routes->post('setoran/cetak-pdf', 'Setoran::cetakPdf');
     $routes->get('setoran/input', 'Setoran::input');
     $routes->post('setoran/simpan', 'Setoran::store');
+    $routes->get('setoran/(:num)/cetak-ulang', 'Setoran::cetakUlang/$1');
     $routes->get('setoran/(:num)/edit', 'Setoran::edit/$1');
     $routes->post('setoran/(:num)/update', 'Setoran::update/$1');
     $routes->post('setoran/(:num)/hapus', 'Setoran::hapus/$1');
