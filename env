@@ -1,69 +1,77 @@
 #--------------------------------------------------------------------
-# Example Environment Configuration file
-#
-# This file can be used as a starting point for your own
-# custom .env files, and contains most of the possible settings
-# available in a default install.
-#
-# By default, all of the settings are commented out. If you want
-# to override the setting, you must un-comment it by removing the '#'
-# at the beginning of the line.
+# Aplikasi Iuran Kantin MTsN 4 Jombang - Environment Template
+#--------------------------------------------------------------------
+# Salin file ini menjadi `.env`, lalu isi nilai sesuai server.
+# File `.env` berisi credential dan TIDAK BOLEH di-commit.
 #--------------------------------------------------------------------
 
 #--------------------------------------------------------------------
 # ENVIRONMENT
 #--------------------------------------------------------------------
-
+# Lokal:
+# CI_ENVIRONMENT = development
+#
+# Hosting produksi:
 # CI_ENVIRONMENT = production
 
 #--------------------------------------------------------------------
 # APP
 #--------------------------------------------------------------------
-
-# app.baseURL = ''
-# If you have trouble with `.`, you could also use `_`.
-# app_baseURL = ''
+# Lokal contoh:
+# app.baseURL = 'http://localhost/iuran_dev/'
 # app.forceGlobalSecureRequests = false
-# app.CSPEnabled = false
+#
+# Production WAJIB memakai HTTPS agar session dan kamera QR aman:
+# app.baseURL = 'https://domain-anda.sch.id/'
+# app.forceGlobalSecureRequests = true
+#
+# Jika HTTPS diterminasi oleh reverse proxy/CDN dan terjadi redirect loop,
+# konfigurasi proxy tepercaya pada Config\App::$proxyIPs sesuai IP proxy hosting.
+
+#--------------------------------------------------------------------
+# COOKIE
+#--------------------------------------------------------------------
+# Production HTTPS:
+# cookie.secure = true
+# cookie.httponly = true
+# cookie.samesite = 'Lax'
 
 #--------------------------------------------------------------------
 # DATABASE
 #--------------------------------------------------------------------
-
 # database.default.hostname = localhost
-# database.default.database = ci4
-# database.default.username = root
-# database.default.password = root
+# database.default.database = iuran_dev
+# database.default.username = USER_DATABASE
+# database.default.password = PASSWORD_DATABASE
 # database.default.DBDriver = MySQLi
 # database.default.DBPrefix =
 # database.default.port = 3306
-
-# If you use MySQLi as tests, first update the values of Config\Database::$tests.
-# database.tests.hostname = localhost
-# database.tests.database = ci4_test
-# database.tests.username = root
-# database.tests.password = root
-# database.tests.DBDriver = MySQLi
-# database.tests.DBPrefix =
-# database.tests.charset = utf8mb4
-# database.tests.DBCollat = utf8mb4_general_ci
-# database.tests.port = 3306
+# database.default.charset = utf8mb4
+# database.default.DBCollat = utf8mb4_general_ci
 
 #--------------------------------------------------------------------
 # ENCRYPTION
 #--------------------------------------------------------------------
-
+# Isi dengan random key yang kuat bila fitur framework yang membutuhkan
+# encryption key digunakan di kemudian hari.
 # encryption.key =
 
 #--------------------------------------------------------------------
 # SESSION
 #--------------------------------------------------------------------
+# Aplikasi sudah dikunci memakai DatabaseHandler dan tabel ci_sessions
+# melalui app/Config/Session.php. Tidak perlu mengubah driver di sini.
 
-# session.driver = 'CodeIgniter\Session\Handlers\FileHandler'
-# session.savePath = null
+#--------------------------------------------------------------------
+# FRESH INSTALL SEEDER ONLY
+#--------------------------------------------------------------------
+# Hanya isi/jalankan bagian ini untuk instalasi database BARU.
+# Jangan jalankan seeder pada database operasional/existing.
+# seed.operatorPassword = 'GANTI_PASSWORD_OPERATOR'
+# seed.pimpinanPassword = 'GANTI_PASSWORD_PIMPINAN'
 
 #--------------------------------------------------------------------
 # LOGGER
 #--------------------------------------------------------------------
-
+# Config Logger otomatis memakai threshold 4 pada production.
 # logger.threshold = 4
