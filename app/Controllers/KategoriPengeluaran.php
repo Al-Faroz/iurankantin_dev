@@ -75,6 +75,21 @@ class KategoriPengeluaran extends BaseController
         return redirect()->to($this->baseUrl . '/kategori-pengeluaran')->with('success', 'Kategori pengeluaran berhasil diperbarui.');
     }
 
+    public function arsipkan(int $id)
+    {
+        if ($this->model->find($id) === null) {
+            throw PageNotFoundException::forPageNotFound('Kategori pengeluaran tidak ditemukan.');
+        }
+
+        $now = date('Y-m-d H:i:s');
+        db_connect()->table('kategori_pengeluaran')
+            ->where('id_kategori_keluar', $id)
+            ->update(['deleted_at' => $now, 'updated_at' => $now]);
+
+        return redirect()->to($this->baseUrl . '/kategori-pengeluaran')
+            ->with('success', 'Kategori pengeluaran berhasil diarsipkan dari master data.');
+    }
+
     private function rules(): array
     {
         return [
