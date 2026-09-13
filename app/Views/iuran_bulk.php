@@ -4,27 +4,52 @@ $oldBayar = old('bayar');
 $oldBayar = is_array($oldBayar) ? $oldBayar : [];
 $oldNominal = old('nominal');
 $oldNominal = is_array($oldNominal) ? $oldNominal : [];
-$oldKeterangan = old('keterangan');
-$oldKeterangan = is_array($oldKeterangan) ? $oldKeterangan : [];
 $tanggal = old('tanggal') ?: $tanggalDefault;
 ?>
 <?= $this->include('layout_header') ?>
 <?= $this->include('layout_flash') ?>
 
 <style>
-    .bulk-table .seller-name { min-width: 190px; }
+    .bulk-table .seller-name { min-width: 220px; }
     .bulk-table .nominal-input { min-width: 150px; }
-    .bulk-table .note-input { min-width: 180px; }
     .bulk-sticky { position: sticky; bottom: 0; z-index: 10; }
 
     @media (max-width: 767.98px) {
         .bulk-table thead { display: none; }
-        .bulk-table, .bulk-table tbody, .bulk-table tr, .bulk-table td { display: block; width: 100%; }
-        .bulk-table tr { border: 1px solid var(--bs-border-color); border-radius: .5rem; margin-bottom: .75rem; padding: .75rem; background: var(--bs-body-bg); }
-        .bulk-table td { border: 0; padding: .35rem 0; }
-        .bulk-table td[data-label]::before { content: attr(data-label); display: block; font-size: .75rem; color: var(--bs-secondary-color); margin-bottom: .2rem; }
-        .bulk-table .seller-name { min-width: 0; }
-        .bulk-table .nominal-input, .bulk-table .note-input { min-width: 0; }
+        .bulk-table,
+        .bulk-table tbody { display: block; width: 100%; }
+        .bulk-table tr {
+            display: grid;
+            grid-template-columns: 54px minmax(0, 1fr) 118px;
+            align-items: center;
+            gap: .55rem;
+            width: 100%;
+            border-bottom: 1px solid var(--bs-border-color);
+            padding: .65rem .1rem;
+        }
+        .bulk-table tr:last-child { border-bottom: 0; }
+        .bulk-table td { display: block; width: auto; border: 0; padding: 0; }
+        .bulk-table td[data-label]::before { display: none; }
+        .bulk-table .seller-name { min-width: 0; overflow: hidden; }
+        .bulk-table .seller-line {
+            display: flex;
+            align-items: center;
+            gap: .35rem;
+            min-width: 0;
+            white-space: nowrap;
+        }
+        .bulk-table .seller-line .seller-text {
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            min-width: 0;
+        }
+        .bulk-table .seller-location { display: none; }
+        .bulk-table .nominal-input { min-width: 0; width: 118px; }
+        .bulk-table .nominal-input .input-group-text { padding-left: .45rem; padding-right: .45rem; }
+        .bulk-table .nominal-input .form-control { min-width: 0; padding-left: .45rem; padding-right: .35rem; }
+        .bulk-table .form-check-label { display: none; }
+        .bulk-table .form-check { padding-left: 2.35rem; }
     }
 </style>
 
@@ -55,14 +80,12 @@ $tanggal = old('tanggal') ?: $tanggalDefault;
 
         <?php if ($penjual): ?>
             <div class="table-responsive px-3 pb-3">
-                <table class="table bulk-table align-middle">
+                <table class="table bulk-table align-middle mb-0">
                     <thead>
                         <tr>
                             <th style="width:80px">Bayar</th>
-                            <th>Penjual</th>
-                            <th>Golongan</th>
+                            <th>Penjual / Golongan</th>
                             <th>Nominal</th>
-                            <th>Keterangan</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -71,30 +94,26 @@ $tanggal = old('tanggal') ?: $tanggalDefault;
                         $id = (int) $row['id_penjual'];
                         $checked = array_key_exists((string) $id, $oldBayar) || array_key_exists($id, $oldBayar);
                         $nominalValue = $oldNominal[$id] ?? $oldNominal[(string) $id] ?? $row['nominal_iuran'];
-                        $ketValue = $oldKeterangan[$id] ?? $oldKeterangan[(string) $id] ?? '';
                         ?>
                         <tr>
-                            <td data-label="Status Bayar">
+                            <td data-label="Bayar">
                                 <div class="form-check form-switch mb-0">
                                     <input class="form-check-input iuran-check" type="checkbox" name="bayar[<?= $id ?>]" value="1" id="bayar-<?= $id ?>" <?= $checked ? 'checked' : '' ?>>
                                     <label class="form-check-label" for="bayar-<?= $id ?>">Bayar</label>
                                 </div>
                             </td>
                             <td data-label="Penjual" class="seller-name">
-                                <div class="fw-semibold"><?= esc($row['nama_penjual']) ?></div>
-                                <small class="text-body-secondary"><?= esc($row['lokasi_lapak'] ?: 'Lokasi belum diisi') ?></small>
-                            </td>
-                            <td data-label="Golongan">
-                                <span class="badge bg-label-primary"><?= esc($row['nama_golongan']) ?></span>
+                                <div class="seller-line">
+                                    <span class="seller-text fw-semibold"><?= esc($row['nama_penjual']) ?></span>
+                                    <span class="badge bg-label-primary flex-shrink-0"><?= esc($row['nama_golongan']) ?></span>
+                                </div>
+                                <small class="seller-location text-body-secondary"><?= esc($row['lokasi_lapak'] ?: 'Lokasi belum diisi') ?></small>
                             </td>
                             <td data-label="Nominal">
                                 <div class="input-group nominal-input">
                                     <span class="input-group-text">Rp</span>
                                     <input type="number" class="form-control iuran-nominal" name="nominal[<?= $id ?>]" value="<?= esc((string) $nominalValue) ?>" min="1" step="1" <?= $checked ? '' : 'disabled' ?>>
                                 </div>
-                            </td>
-                            <td data-label="Keterangan">
-                                <input type="text" class="form-control iuran-keterangan note-input" name="keterangan[<?= $id ?>]" value="<?= esc((string) $ketValue) ?>" maxlength="255" placeholder="Opsional" <?= $checked ? '' : 'disabled' ?>>
                             </td>
                         </tr>
                     <?php endforeach; ?>
@@ -153,11 +172,9 @@ document.addEventListener('DOMContentLoaded', function () {
     checks.forEach(function (check) {
         const row = check.closest('tr');
         const nominal = row.querySelector('.iuran-nominal');
-        const note = row.querySelector('.iuran-keterangan');
 
         function sync() {
             nominal.disabled = !check.checked;
-            note.disabled = !check.checked;
             recalc();
         }
 
