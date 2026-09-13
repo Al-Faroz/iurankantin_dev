@@ -77,6 +77,30 @@ class GolonganPenjual extends BaseController
         return redirect()->to($this->baseUrl . '/golongan')->with('success', 'Golongan berhasil diperbarui.');
     }
 
+    public function arsipkan(int $id)
+    {
+        if ($this->model->find($id) === null) {
+            throw PageNotFoundException::forPageNotFound('Golongan tidak ditemukan.');
+        }
+
+        $jumlahPenjual = db_connect()->table('penjual')
+            ->where('id_golongan', $id)
+            ->where('deleted_at', null)
+            ->countAllResults();
+
+        if ($jumlahPenjual > 0) {
+            return redirect()->to($this->baseUrl . '/golongan')
+                ->with('error', 'Golongan masih digunakan oleh penjual. Pindahkan golongan penjual terlebih dahulu.');
+        }
+
+        $now = date('Y-m-d H:i:s');
+        db_connect()->table('golongan_penjual')
+            ->where('id_golongan', $id)
+            ->update(['deleted_at' => $now, 'updated_at' => $now]);
+
+        return redirect()->to($this->baseUrl . '/golongan')->with('success', 'Golongan berhasil diarsipkan dari master data.');
+    }
+
     private function rules(): array
     {
         return [
