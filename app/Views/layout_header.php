@@ -12,7 +12,7 @@ $segment1 = request()->getUri()->getSegment(1);
     <title><?= esc($title ?? 'Aplikasi Iuran Kantin') ?> | MTsN 4 Jombang</title>
     <meta name="description" content="Aplikasi pencatatan iuran penjual kantin MTsN 4 Jombang">
 
-    <link rel="icon" type="image/x-icon" href="<?= esc($baseUrl) ?>/favicon.ico">
+    <?= $this->include('layout_favicon') ?>
     <link rel="stylesheet" href="<?= esc($baseUrl) ?>/assets/vendor/fonts/iconify-icons.css">
     <link rel="stylesheet" href="<?= esc($baseUrl) ?>/assets/vendor/css/core.css">
     <link rel="stylesheet" href="<?= esc($baseUrl) ?>/assets/css/demo.css">
