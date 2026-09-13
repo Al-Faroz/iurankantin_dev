@@ -22,8 +22,20 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
                 <tr>
                     <td><?= $index + 1 ?></td>
                     <td><?= esc($row['nama_kategori']) ?></td>
-                    <td class="text-center">
-                        <a class="btn btn-sm btn-outline-primary" href="<?= esc($baseUrl) ?>/kategori-pengeluaran/<?= (int) $row['id_kategori_keluar'] ?>/edit">Edit</a>
+                    <td class="text-center text-nowrap">
+                        <a class="btn btn-sm btn-outline-primary" href="<?= esc($baseUrl) ?>/kategori-pengeluaran/<?= (int) $row['id_kategori_keluar'] ?>/edit" title="Edit">
+                            <i class="icon-base bx bx-edit"></i>
+                        </a>
+                        <form action="<?= esc($baseUrl) ?>/kategori-pengeluaran/<?= (int) $row['id_kategori_keluar'] ?>/arsipkan"
+                              method="post" class="d-inline"
+                              data-confirm-title="Arsipkan kategori?"
+                              data-confirm-text="Kategori tidak lagi tersedia untuk transaksi baru. Riwayat pengeluaran lama tetap tersimpan."
+                              data-confirm-button="Ya, arsipkan">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Arsipkan">
+                                <i class="icon-base bx bx-archive"></i>
+                            </button>
+                        </form>
                     </td>
                 </tr>
             <?php endforeach; ?>
