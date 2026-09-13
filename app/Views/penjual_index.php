@@ -54,6 +54,16 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
                         <a href="<?= esc($baseUrl) ?>/penjual/<?= (int) $row['id_penjual'] ?>/edit" class="btn btn-sm btn-outline-primary" title="Edit">
                             <i class="icon-base bx bx-edit"></i>
                         </a>
+                        <form action="<?= esc($baseUrl) ?>/penjual/<?= (int) $row['id_penjual'] ?>/arsipkan"
+                              method="post" class="d-inline"
+                              data-confirm-title="Arsipkan penjual?"
+                              data-confirm-text="Penjual tidak lagi muncul di transaksi baru dan QR kartunya menjadi tidak valid. Riwayat transaksi tetap tersimpan."
+                              data-confirm-button="Ya, arsipkan">
+                            <?= csrf_field() ?>
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Arsipkan">
+                                <i class="icon-base bx bx-archive"></i>
+                            </button>
+                        </form>
                     </td>
                 </tr>
             <?php endforeach; ?>
