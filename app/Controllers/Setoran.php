@@ -50,29 +50,36 @@ class Setoran extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
+        $tanggalForm = (string) $this->request->getPost('tanggal_form');
         $periodeAwal = (string) $this->request->getPost('periode_awal');
         $periodeAkhir = (string) $this->request->getPost('periode_akhir');
         if ($periodeAwal > $periodeAkhir) {
             return redirect()->back()->withInput()->with('error', 'Periode awal tidak boleh melewati periode akhir.');
         }
 
-        $pdfService = new PdfService();
-        $setting = $this->settingModel->getCurrent();
-        $binary = $pdfService->render('pdf_bukti_setoran', [
-            'setting' => $setting,
-            'logoDataUri' => $pdfService->imageDataUri($setting['logo'] ?? null),
-            'tanggalForm' => (string) $this->request->getPost('tanggal_form'),
-            'periodeAwal' => $periodeAwal,
-            'periodeAkhir' => $periodeAkhir,
-            'nominal' => (float) $this->request->getPost('nominal'),
-        ]);
+        return $this->pdfResponse(
+            $tanggalForm,
+            $periodeAwal,
+            $periodeAkhir,
+            (float) $this->request->getPost('nominal'),
+            'form-setoran-' . date('Ymd', strtotime($tanggalForm)) . '.pdf'
+        );
+    }
 
-        $filename = 'form-setoran-' . date('Ymd', strtotime((string) $this->request->getPost('tanggal_form'))) . '.pdf';
+    public function cetakUlang(int $id)
+    {
+        $setoran = $this->model->find($id);
+        if ($setoran === null) {
+            throw PageNotFoundException::forPageNotFound('Setoran pimpinan tidak ditemukan.');
+        }
 
-        return $this->response
-            ->setHeader('Content-Type', 'application/pdf')
-            ->setHeader('Content-Disposition', 'inline; filename="' . $filename . '"')
-            ->setBody($binary);
+        return $this->pdfResponse(
+            (string) $setoran['tanggal_form'],
+            (string) $setoran['periode_awal'],
+            (string) $setoran['periode_akhir'],
+            (float) $setoran['nominal'],
+            'form-setoran-' . $id . '-' . date('Ymd', strtotime((string) $setoran['tanggal_form'])) . '.pdf'
+        );
     }
 
     public function input()
@@ -147,6 +154,30 @@ class Setoran extends BaseController
         $this->model->delete($id, true);
 
         return redirect()->to($this->baseUrl . '/setoran')->with('success', 'Setoran pimpinan berhasil dihapus permanen.');
+    }
+
+    private function pdfResponse(
+        string $tanggalForm,
+        string $periodeAwal,
+        string $periodeAkhir,
+        float $nominal,
+        string $filename
+    ) {
+        $pdfService = new PdfService();
+        $setting = $this->settingModel->getCurrent();
+        $binary = $pdfService->render('pdf_bukti_setoran', [
+            'setting' => $setting,
+            'logoDataUri' => $pdfService->imageDataUri($setting['logo'] ?? null),
+            'tanggalForm' => $tanggalForm,
+            'periodeAwal' => $periodeAwal,
+            'periodeAkhir' => $periodeAkhir,
+            'nominal' => $nominal,
+        ]);
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/pdf')
+            ->setHeader('Content-Disposition', 'inline; filename="' . $filename . '"')
+            ->setBody($binary);
     }
 
     private function payload(): array
