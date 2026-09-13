@@ -81,8 +81,14 @@ document.addEventListener('DOMContentLoaded', function () {
     tables.forEach(function (table, tableIndex) {
         const headers = Array.from(table.querySelectorAll('thead tr:first-child th'));
         const rows = Array.from(table.querySelectorAll('tbody tr'));
+        const originalParent = table.parentElement;
         const filterBox = document.createElement('div');
         filterBox.className = 'datatable-column-filters row g-2 px-3 pt-3';
+
+        // Letakkan filter sebelum DataTables membungkus elemen table.
+        if (originalParent) {
+            originalParent.insertBefore(filterBox, table);
+        }
 
         const dt = new DataTable(table, {
             responsive: true,
@@ -117,6 +123,10 @@ document.addEventListener('DOMContentLoaded', function () {
                 return a.localeCompare(b, 'id');
             });
 
+            if (uniqueValues.length === 0) {
+                return;
+            }
+
             const col = document.createElement('div');
             col.className = 'col-12 col-sm-6 col-lg-3';
             const fieldId = 'dt-filter-' + tableIndex + '-' + columnIndex;
@@ -127,7 +137,8 @@ document.addEventListener('DOMContentLoaded', function () {
             col.appendChild(fieldLabel);
 
             let control;
-            if (uniqueValues.length > 1 && uniqueValues.length <= 15) {
+            const useSelect = uniqueValues.length > 1 && uniqueValues.length <= 15;
+            if (useSelect) {
                 control = document.createElement('select');
                 control.className = 'form-select form-select-sm';
                 const optionAll = document.createElement('option');
@@ -148,22 +159,22 @@ document.addEventListener('DOMContentLoaded', function () {
             }
 
             control.id = fieldId;
-            control.addEventListener('input', function () {
-                dt.column(columnIndex).search(control.value).draw();
-            });
-            control.addEventListener('change', function () {
-                dt.column(columnIndex).search(control.value).draw();
-            });
+            const applyFilter = function () {
+                if (useSelect) {
+                    dt.column(columnIndex).search(control.value, { exact: control.value !== '' }).draw();
+                } else {
+                    dt.column(columnIndex).search(control.value).draw();
+                }
+            };
+            control.addEventListener('input', applyFilter);
+            control.addEventListener('change', applyFilter);
 
             col.appendChild(control);
             filterBox.appendChild(col);
         });
 
-        if (filterBox.children.length > 0) {
-            const wrapper = table.closest('.card-datatable, .table-responsive') || table.parentElement;
-            if (wrapper) {
-                wrapper.insertBefore(filterBox, table);
-            }
+        if (filterBox.children.length === 0) {
+            filterBox.remove();
         }
     });
 });
