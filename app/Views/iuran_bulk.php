@@ -94,6 +94,14 @@ $tanggal = old('tanggal') ?: $tanggalDefault;
                         $id = (int) $row['id_penjual'];
                         $checked = array_key_exists((string) $id, $oldBayar) || array_key_exists($id, $oldBayar);
                         $nominalValue = $oldNominal[$id] ?? $oldNominal[(string) $id] ?? $row['nominal_iuran'];
+                        $namaGolongan = trim((string) $row['nama_golongan']);
+                        $golonganSingkat = $namaGolongan;
+                        if (preg_match('/^Golongan\s*(.+)$/i', $namaGolongan, $match) === 1) {
+                            $kode = preg_replace('/\s+/', '', trim((string) ($match[1] ?? '')));
+                            if ($kode !== '') {
+                                $golonganSingkat = 'G' . $kode;
+                            }
+                        }
                         ?>
                         <tr>
                             <td data-label="Bayar">
@@ -105,7 +113,7 @@ $tanggal = old('tanggal') ?: $tanggalDefault;
                             <td data-label="Penjual" class="seller-name">
                                 <div class="seller-line">
                                     <span class="seller-text fw-semibold"><?= esc($row['nama_penjual']) ?></span>
-                                    <span class="badge bg-label-primary flex-shrink-0"><?= esc($row['nama_golongan']) ?></span>
+                                    <span class="badge bg-label-primary flex-shrink-0" title="<?= esc($namaGolongan) ?>"><?= esc($golonganSingkat) ?></span>
                                 </div>
                                 <small class="seller-location text-body-secondary"><?= esc($row['lokasi_lapak'] ?: 'Lokasi belum diisi') ?></small>
                             </td>
