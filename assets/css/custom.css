@@ -151,10 +151,22 @@ table.dataTable > tbody > tr.child ul.dtr-details > li span.dtr-title {
     font-weight: 600;
 }
 
-/* Sidebar: tombol collapse tetap dapat dijangkau di desktop */
+/* Sidebar desktop: kontrol collapse selalu terlihat dan mudah dijangkau. */
 @media (min-width: 1200px) {
     #layout-menu .layout-menu-toggle {
+        display: flex !important;
+        align-items: center;
+        justify-content: center;
         cursor: pointer;
+        opacity: 1 !important;
+    }
+
+    #layout-menu .layout-menu-toggle i {
+        transition: transform 0.2s ease;
+    }
+
+    html.layout-menu-collapsed #layout-menu .layout-menu-toggle i {
+        transform: rotate(180deg);
     }
 }
 
