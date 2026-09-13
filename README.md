@@ -1,69 +1,267 @@
-# CodeIgniter 4 Application Starter
+# Aplikasi Iuran Kantin MTsN 4 Jombang
 
-## What is CodeIgniter?
+Aplikasi CodeIgniter 4 untuk pencatatan iuran **penjual/pedagang kantin kepada madrasah**, pengeluaran kas, setoran ke pimpinan, laporan, serta kartu anggota kantin dengan QR.
 
-CodeIgniter is a PHP full-stack web framework that is light, fast, flexible and secure.
-More information can be found at the [official site](https://codeigniter.com).
+> Aplikasi ini bukan aplikasi iuran siswa dan bukan aplikasi POS/kasir.
 
-This repository holds a composer-installable app starter.
-It has been built from the
-[development repository](https://github.com/codeigniter4/CodeIgniter4).
+Dokumen acuan utama pengembangan ada di:
 
-More information about the plans for version 4 can be found in [CodeIgniter 4](https://forum.codeigniter.com/forumdisplay.php?fid=28) on the forums.
+```text
+docs/DOKUMEN_ACUAN_Iuran_Kantin_MTsN4.md
+```
 
-You can read the [user guide](https://codeigniter.com/user_guide/)
-corresponding to the latest version of the framework.
+## Stack
 
-## Installation & updates
+- PHP 8.2+
+- CodeIgniter 4
+- MySQL/MariaDB
+- Sneat Bootstrap 5
+- jQuery
+- DataTables + Responsive
+- SweetAlert2
+- ApexCharts
+- Dompdf
+- PhpSpreadsheet
+- Intervention Image + GD
+- Endroid QR Code
+- jsQR lokal untuk scanner browser
 
-`composer create-project codeigniter4/appstarter` then `composer update` whenever
-there is a new release of the framework.
+Seluruh asset aplikasi harus tersedia **lokal**, tanpa CDN saat runtime.
 
-When updating, check the release notes to see if there are any changes you might need to apply
-to your `app` folder. The affected files can be copied or merged from
-`vendor/codeigniter4/framework/app`.
+## Struktur deployment
 
-## Setup
+Project mengikuti skema shared-hosting pada dokumen acuan: isi folder `public/` CodeIgniter telah dipindahkan ke root project. Karena itu `.htaccess` root memblokir akses web langsung ke source/configuration seperti:
 
-Copy `env` to `.env` and tailor for your app, specifically the baseURL
-and any database settings.
+- `app/`
+- `vendor/`
+- `writable/`
+- `tests/`
+- `.env`
+- `composer.json` / `composer.lock`
+- `spark`
 
-## Important Change with index.php
+Asset publik tetap berada di `assets/`, `assets-app/`, dan file upload publik yang memang dibutuhkan berada di `uploads/`.
 
-`index.php` is no longer in the root of the project! It has been moved inside the *public* folder,
-for better security and separation of components.
+## Requirement PHP
 
-This means that you should configure your web server to "point" to your project's *public* folder, and
-not to the project root. A better practice would be to configure a virtual host to point there. A poor practice would be to point your web server to the project root and expect to enter *public/...*, as the rest of your logic and the
-framework are exposed.
+Aktifkan minimal extension berikut:
 
-**Please** read the user guide for a better explanation of how CI4 works!
+```text
+intl
+mbstring
+mysqli
+fileinfo
+gd
+zip
+```
 
-## Repository Management
+`zip` dibutuhkan untuk download kartu anggota lengkap/bulk. `gd` dibutuhkan untuk kompresi bukti nota, render kartu, dan QR PNG.
 
-We use GitHub issues, in our main repository, to track **BUGS** and to track approved **DEVELOPMENT** work packages.
-We use our [forum](http://forum.codeigniter.com) to provide SUPPORT and to discuss
-FEATURE REQUESTS.
+## Setup lokal — database existing
 
-This repository is a "distribution" one, built by our release preparation script.
-Problems with it can be raised on our forum, or as issues in the main repository.
+Untuk database development yang sudah mempunyai 8 tabel bisnis dan sudah pernah menjalankan migration `100001` sampai `100008`, jangan reset database dan jangan menjalankan seeder awal lagi.
 
-## Server Requirements
+```powershell
+git pull origin main
+php spark migrate:status
+```
 
-PHP version 8.2 or higher is required, with the following extensions installed:
+Pastikan migration berikut sudah berstatus migrated:
 
-- [intl](http://php.net/manual/en/intl.requirements.php)
-- [mbstring](http://php.net/manual/en/mbstring.installation.php)
+```text
+2026-09-11-100001_CreateGolonganPenjualTable
+2026-09-11-100002_CreateKategoriPengeluaranTable
+2026-09-11-100003_CreateUsersTable
+2026-09-11-100004_CreatePenjualTable
+2026-09-11-100005_CreateSettingTable
+2026-09-11-100006_CreateTransaksiIuranTable
+2026-09-11-100007_CreateTransaksiPengeluaranTable
+2026-09-11-100008_CreateSetoranPimpinanTable
+```
 
-> [!WARNING]
-> - The end of life date for PHP 7.4 was November 28, 2022.
-> - The end of life date for PHP 8.0 was November 26, 2023.
-> - The end of life date for PHP 8.1 was December 31, 2025.
-> - If you are still using below PHP 8.2, you should upgrade immediately.
-> - The end of life date for PHP 8.2 will be December 31, 2026.
+Migration tambahan aplikasi:
 
-Additionally, make sure that the following extensions are enabled in your PHP:
+```text
+2026-09-13-100009_CreateCiSessionsTable
+```
 
-- json (enabled by default - don't turn it off)
-- [mysqlnd](http://php.net/manual/en/mysqlnd.install.php) if you plan to use MySQL
-- [libcurl](http://php.net/manual/en/curl.requirements.php) if you plan to use the HTTP\CURLRequest library
+Jika hanya `100009` yang pending, jalankan:
+
+```powershell
+php spark migrate
+```
+
+Aplikasi memakai **database-backed session** pada tabel `ci_sessions`.
+
+## Fresh install
+
+Untuk database kosong:
+
+```powershell
+composer install
+php spark migrate
+```
+
+Sebelum menjalankan seeder fresh-install, isi `.env` dengan password awal yang hanya diketahui administrator:
+
+```dotenv
+seed.operatorPassword = "GANTI_DENGAN_PASSWORD_OPERATOR"
+seed.pimpinanPassword = "GANTI_DENGAN_PASSWORD_PIMPINAN"
+```
+
+Kemudian:
+
+```powershell
+php spark db:seed IuranKantinSeeder
+```
+
+Seeder membuat tiga golongan awal, singleton setting, akun Operator, dan akun Pimpinan. **Jangan jalankan seeder ini pada database existing yang sudah memiliki data awal.**
+
+## `.env` lokal
+
+Contoh konfigurasi development:
+
+```dotenv
+CI_ENVIRONMENT = development
+
+app.baseURL = 'http://localhost/iuran_dev/'
+
+database.default.hostname = localhost
+database.default.database = iuran_dev
+database.default.username = root
+database.default.password =
+database.default.DBDriver = MySQLi
+```
+
+`.env` tidak boleh di-commit.
+
+## Scanner QR lokal
+
+File scanner aplikasi:
+
+```text
+assets-app/qrcode-lib/kartu-scanner.js
+```
+
+Decoder jsQR dipin ke **jsQR 1.4.0**, commit resmi:
+
+```text
+34d8eec1ec5d85496f3948ff02fcfe6406f89d81
+```
+
+Jika `assets-app/qrcode-lib/jsQR.js` belum tersedia, ambil sekali ke project lokal:
+
+```powershell
+Invoke-WebRequest `
+  -Uri "https://raw.githubusercontent.com/cozmo/jsQR/34d8eec1ec5d85496f3948ff02fcfe6406f89d81/dist/jsQR.js" `
+  -OutFile ".\assets-app\qrcode-lib\jsQR.js"
+```
+
+Lalu track sebagai vendor asset:
+
+```powershell
+git add assets-app/qrcode-lib/jsQR.js
+git commit -m "build: vendor jsQR 1.4.0 locally"
+git push origin main
+```
+
+Scanner juga menggunakan `BarcodeDetector` sebagai fallback pada browser Chromium yang mendukungnya. Kamera browser pada production membutuhkan **HTTPS**; `localhost` dapat memakai kamera pada browser modern.
+
+## Background kartu anggota
+
+Ukuran canvas kartu adalah:
+
+```text
+1011 x 638 px
+```
+
+Upload background kartu depan dan belakang melalui menu **Setting**. Background belakang bersifat statis. Kartu depan dirender server-side dan berisi data penjual serta QR verifikasi.
+
+Perilaku QR:
+
+- Pengunjung umum: hanya melihat Nama Penjual, Golongan, dan Status.
+- Operator yang sudah login: diarahkan ke detail internal Penjual dan riwayat iurannya.
+
+`kode_kartu` bersifat persisten. Regenerate QR hanya mengganti `kode_verifikasi`, sehingga QR lama tidak berlaku lagi tanpa mengganti kode kartu.
+
+## Pengeluaran
+
+Foto bukti nota bersifat opsional dan hanya menerima JPG/PNG. Server mengecilkan gambar dan mengompres hasil menjadi JPG dengan target **di bawah 500 KB**.
+
+## Setoran pimpinan
+
+Setoran memakai dua tahap terpisah:
+
+1. **Cetak Form Setoran** — hanya menghasilkan PDF dan tidak menyimpan transaksi.
+2. **Input Setoran Resmi** — dilakukan setelah uang benar-benar diserahkan kepada pimpinan; tahap ini baru menyimpan `setoran_pimpinan` dan mengurangi saldo kas.
+
+## Laporan
+
+Tersedia:
+
+- Laporan Iuran
+- Laporan Pengeluaran
+- Laporan Setoran
+- Rekap Kas dengan saldo berjalan
+
+Export Excel menggunakan filter yang sama dengan halaman laporan.
+
+## Role
+
+### Operator
+
+Dapat melakukan input transaksi, mengelola master data, setting, kartu anggota, scanner, user, dan melihat laporan.
+
+### Pimpinan
+
+Read-only untuk Dashboard dan Laporan. Tombol aksi/input tidak ditampilkan di UI dan route tulis dilindungi filter Operator.
+
+## Pemeriksaan sebelum UAT
+
+Jalankan dari root project:
+
+```powershell
+composer install
+php spark migrate:status
+php spark routes
+```
+
+Syntax PHP juga diperiksa otomatis melalui GitHub Actions workflow `.github/workflows/ci.yml`.
+
+Checklist minimum browser:
+
+```text
+[ ] Login Operator
+[ ] Login Pimpinan dan pastikan tidak ada menu input/master
+[ ] Tambah/edit/arsip master data
+[ ] Input iuran bulk beberapa penjual
+[ ] Input pengeluaran + foto nota
+[ ] Cetak form iuran mingguan
+[ ] Cetak form setoran tanpa perubahan saldo
+[ ] Simpan setoran resmi dan cek saldo
+[ ] Filter tiap laporan dan bandingkan hasil Excel
+[ ] Upload logo/background kartu
+[ ] Generate kartu depan dan ZIP lengkap
+[ ] Scan QR sebagai publik
+[ ] Scan QR sebagai Operator
+[ ] Regenerate QR lalu pastikan QR lama tidak valid
+[ ] Uji tampilan Android Chrome
+```
+
+## Production / shared hosting
+
+Sebelum production:
+
+- gunakan HTTPS;
+- set `CI_ENVIRONMENT = production`;
+- sesuaikan `app.baseURL` ke URL HTTPS production;
+- pastikan `writable/`, `uploads/branding/`, dan `uploads/bukti_nota/` writable oleh PHP;
+- jalankan `composer install --no-dev --optimize-autoloader`;
+- jalankan migration yang masih pending;
+- jangan upload `.env` ke repository;
+- verifikasi URL langsung ke `/app`, `/vendor`, `/writable`, dan `/.env` menghasilkan akses ditolak;
+- ganti password akun awal sebelum aplikasi dipakai operasional.
+
+## Branch pengembangan
+
+Sesuai dokumen acuan, pengembangan project ini dilakukan langsung pada branch `main`.
