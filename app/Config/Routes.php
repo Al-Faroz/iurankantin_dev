@@ -52,6 +52,11 @@ $routes->group('', ['filter' => 'operator'], static function (RouteCollection $r
     $routes->get('setoran/input', 'Setoran::input');
     $routes->post('setoran/simpan', 'Setoran::store');
 
+    $routes->get('koreksi-transaksi', 'KoreksiTransaksi::index');
+    $routes->post('koreksi-transaksi/iuran/(:num)/hapus', 'KoreksiTransaksi::hapusIuran/$1');
+    $routes->post('koreksi-transaksi/pengeluaran/(:num)/hapus', 'KoreksiTransaksi::hapusPengeluaran/$1');
+    $routes->post('koreksi-transaksi/setoran/(:num)/hapus', 'KoreksiTransaksi::hapusSetoran/$1');
+
     $routes->get('kartu', 'KartuAnggota::index');
     $routes->get('kartu/scan', 'KartuAnggota::scan');
     $routes->post('kartu/(:num)/generate', 'KartuAnggota::generate/$1');
