@@ -19,32 +19,43 @@ class KoreksiTransaksi extends BaseController
     public function index()
     {
         $db = db_connect();
+        $filter = $this->filterPeriode();
+
+        $iuran = $db->table('transaksi_iuran')
+            ->select('transaksi_iuran.*, penjual.nama_penjual, users.nama AS nama_operator')
+            ->join('penjual', 'penjual.id_penjual = transaksi_iuran.id_penjual')
+            ->join('users', 'users.id_user = transaksi_iuran.id_operator')
+            ->where('transaksi_iuran.tanggal >=', $filter['tanggal_awal'])
+            ->where('transaksi_iuran.tanggal <=', $filter['tanggal_akhir'])
+            ->orderBy('tanggal', 'DESC')
+            ->orderBy('id_transaksi', 'DESC')
+            ->get()->getResultArray();
+
+        $pengeluaran = $db->table('transaksi_pengeluaran')
+            ->select('transaksi_pengeluaran.*, kategori_pengeluaran.nama_kategori, users.nama AS nama_operator')
+            ->join('kategori_pengeluaran', 'kategori_pengeluaran.id_kategori_keluar = transaksi_pengeluaran.id_kategori_keluar')
+            ->join('users', 'users.id_user = transaksi_pengeluaran.id_operator')
+            ->where('transaksi_pengeluaran.tanggal >=', $filter['tanggal_awal'])
+            ->where('transaksi_pengeluaran.tanggal <=', $filter['tanggal_akhir'])
+            ->orderBy('tanggal', 'DESC')
+            ->orderBy('id_pengeluaran', 'DESC')
+            ->get()->getResultArray();
+
+        $setoran = $db->table('setoran_pimpinan')
+            ->select('setoran_pimpinan.*, users.nama AS nama_operator')
+            ->join('users', 'users.id_user = setoran_pimpinan.id_operator')
+            ->where('setoran_pimpinan.tanggal_form >=', $filter['tanggal_awal'])
+            ->where('setoran_pimpinan.tanggal_form <=', $filter['tanggal_akhir'])
+            ->orderBy('tanggal_form', 'DESC')
+            ->orderBy('id_setoran', 'DESC')
+            ->get()->getResultArray();
 
         return view('koreksi_transaksi_index', [
             'title' => 'Koreksi Transaksi',
-            'iuran' => $db->table('transaksi_iuran')
-                ->select('transaksi_iuran.*, penjual.nama_penjual, users.nama AS nama_operator')
-                ->join('penjual', 'penjual.id_penjual = transaksi_iuran.id_penjual')
-                ->join('users', 'users.id_user = transaksi_iuran.id_operator')
-                ->orderBy('tanggal', 'DESC')
-                ->orderBy('id_transaksi', 'DESC')
-                ->limit(200)
-                ->get()->getResultArray(),
-            'pengeluaran' => $db->table('transaksi_pengeluaran')
-                ->select('transaksi_pengeluaran.*, kategori_pengeluaran.nama_kategori, users.nama AS nama_operator')
-                ->join('kategori_pengeluaran', 'kategori_pengeluaran.id_kategori_keluar = transaksi_pengeluaran.id_kategori_keluar')
-                ->join('users', 'users.id_user = transaksi_pengeluaran.id_operator')
-                ->orderBy('tanggal', 'DESC')
-                ->orderBy('id_pengeluaran', 'DESC')
-                ->limit(200)
-                ->get()->getResultArray(),
-            'setoran' => $db->table('setoran_pimpinan')
-                ->select('setoran_pimpinan.*, users.nama AS nama_operator')
-                ->join('users', 'users.id_user = setoran_pimpinan.id_operator')
-                ->orderBy('tanggal_form', 'DESC')
-                ->orderBy('id_setoran', 'DESC')
-                ->limit(200)
-                ->get()->getResultArray(),
+            'filter' => $filter,
+            'iuran' => $iuran,
+            'pengeluaran' => $pengeluaran,
+            'setoran' => $setoran,
         ]);
     }
 
@@ -57,7 +68,7 @@ class KoreksiTransaksi extends BaseController
 
         $model->delete($id, true);
 
-        return redirect()->to($this->baseUrl . '/koreksi-transaksi')->with('success', 'Transaksi iuran yang salah berhasil dihapus permanen.');
+        return redirect()->to($this->returnUrl())->with('success', 'Transaksi iuran yang salah berhasil dihapus permanen.');
     }
 
     public function hapusPengeluaran(int $id)
@@ -78,7 +89,7 @@ class KoreksiTransaksi extends BaseController
             }
         }
 
-        return redirect()->to($this->baseUrl . '/koreksi-transaksi')->with('success', 'Transaksi pengeluaran yang salah berhasil dihapus permanen.');
+        return redirect()->to($this->returnUrl())->with('success', 'Transaksi pengeluaran yang salah berhasil dihapus permanen.');
     }
 
     public function hapusSetoran(int $id)
@@ -90,6 +101,43 @@ class KoreksiTransaksi extends BaseController
 
         $model->delete($id, true);
 
-        return redirect()->to($this->baseUrl . '/koreksi-transaksi')->with('success', 'Transaksi setoran yang salah berhasil dihapus permanen.');
+        return redirect()->to($this->returnUrl())->with('success', 'Transaksi setoran yang salah berhasil dihapus permanen.');
+    }
+
+    private function filterPeriode(): array
+    {
+        $now = new \DateTimeImmutable('now', new \DateTimeZone('Asia/Jakarta'));
+        $awalDefault = $now->modify('first day of this month')->format('Y-m-d');
+        $akhirDefault = $now->format('Y-m-d');
+
+        $awal = (string) ($this->request->getGet('tanggal_awal') ?: $awalDefault);
+        $akhir = (string) ($this->request->getGet('tanggal_akhir') ?: $akhirDefault);
+
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $awal)) {
+            $awal = $awalDefault;
+        }
+        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $akhir)) {
+            $akhir = $akhirDefault;
+        }
+        if ($awal > $akhir) {
+            [$awal, $akhir] = [$akhir, $awal];
+        }
+
+        return ['tanggal_awal' => $awal, 'tanggal_akhir' => $akhir];
+    }
+
+    private function returnUrl(): string
+    {
+        $awal = (string) $this->request->getPost('tanggal_awal');
+        $akhir = (string) $this->request->getPost('tanggal_akhir');
+
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $awal) !== 1 || preg_match('/^\d{4}-\d{2}-\d{2}$/', $akhir) !== 1) {
+            return $this->baseUrl . '/koreksi-transaksi';
+        }
+
+        return $this->baseUrl . '/koreksi-transaksi?' . http_build_query([
+            'tanggal_awal' => $awal,
+            'tanggal_akhir' => $akhir,
+        ]);
     }
 }
