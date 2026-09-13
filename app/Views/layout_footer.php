@@ -66,9 +66,13 @@ document.addEventListener('DOMContentLoaded', function () {
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const selector = <?= json_encode($dataTableSelector ?? '.datatable', JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>;
-    const table = document.querySelector(selector);
+    const tables = document.querySelectorAll(selector);
 
-    if (table && window.DataTable) {
+    if (!window.DataTable || tables.length === 0) {
+        return;
+    }
+
+    tables.forEach(function (table) {
         new DataTable(table, {
             responsive: true,
             pageLength: 10,
@@ -83,7 +87,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 paginate: { previous: 'Sebelumnya', next: 'Berikutnya' }
             }
         });
-    }
+    });
 });
 </script>
 <?php endif; ?>
