@@ -38,9 +38,10 @@ class Filters extends BaseFilters
 
     public array $globals = [
         'before' => [],
-        'after' => [],
+        'after' => ['secureheaders'],
     ];
 
+    // Seluruh aksi tulis aplikasi menggunakan POST dan wajib lolos CSRF.
     public array $methods = [
         'POST' => ['csrf'],
     ];
