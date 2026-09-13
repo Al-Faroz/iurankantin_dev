@@ -113,6 +113,25 @@ class Penjual extends BaseController
         ]);
     }
 
+    public function arsipkan(int $id)
+    {
+        if ($this->model->find($id) === null) {
+            throw PageNotFoundException::forPageNotFound('Penjual tidak ditemukan.');
+        }
+
+        $now = date('Y-m-d H:i:s');
+        db_connect()->table('penjual')
+            ->where('id_penjual', $id)
+            ->update([
+                'status_aktif' => 'Nonaktif',
+                'deleted_at' => $now,
+                'updated_at' => $now,
+            ]);
+
+        return redirect()->to($this->baseUrl . '/penjual')
+            ->with('success', 'Penjual berhasil diarsipkan. Riwayat transaksi tetap tersimpan.');
+    }
+
     private function payload(): array
     {
         return [
