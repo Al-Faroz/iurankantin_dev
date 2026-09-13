@@ -72,14 +72,27 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
     }
 
-    tables.forEach(function (table) {
-        new DataTable(table, {
+    const normalizeText = function (value) {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = value == null ? '' : String(value);
+        return (wrapper.textContent || wrapper.innerText || '').replace(/\s+/g, ' ').trim();
+    };
+
+    tables.forEach(function (table, tableIndex) {
+        const headers = Array.from(table.querySelectorAll('thead tr:first-child th'));
+        const rows = Array.from(table.querySelectorAll('tbody tr'));
+        const filterBox = document.createElement('div');
+        filterBox.className = 'datatable-column-filters row g-2 px-3 pt-3';
+
+        const dt = new DataTable(table, {
             responsive: true,
+            paging: true,
             pageLength: 10,
+            lengthMenu: [10, 25, 50, 100],
             order: [],
             columnDefs: [{ targets: 'no-sort', orderable: false }],
             language: {
-                search: 'Cari:',
+                search: 'Cari semua:',
                 lengthMenu: 'Tampilkan _MENU_ data',
                 info: 'Menampilkan _START_–_END_ dari _TOTAL_ data',
                 infoEmpty: 'Tidak ada data',
@@ -87,6 +100,71 @@ document.addEventListener('DOMContentLoaded', function () {
                 paginate: { previous: 'Sebelumnya', next: 'Berikutnya' }
             }
         });
+
+        headers.forEach(function (header, columnIndex) {
+            if (header.classList.contains('no-sort') || header.classList.contains('no-filter')) {
+                return;
+            }
+
+            const label = normalizeText(header.textContent) || ('Kolom ' + (columnIndex + 1));
+            const values = rows
+                .map(function (row) {
+                    const cell = row.children[columnIndex];
+                    return cell ? normalizeText(cell.innerHTML) : '';
+                })
+                .filter(Boolean);
+            const uniqueValues = Array.from(new Set(values)).sort(function (a, b) {
+                return a.localeCompare(b, 'id');
+            });
+
+            const col = document.createElement('div');
+            col.className = 'col-12 col-sm-6 col-lg-3';
+            const fieldId = 'dt-filter-' + tableIndex + '-' + columnIndex;
+            const fieldLabel = document.createElement('label');
+            fieldLabel.className = 'form-label small mb-1';
+            fieldLabel.htmlFor = fieldId;
+            fieldLabel.textContent = 'Filter ' + label;
+            col.appendChild(fieldLabel);
+
+            let control;
+            if (uniqueValues.length > 1 && uniqueValues.length <= 15) {
+                control = document.createElement('select');
+                control.className = 'form-select form-select-sm';
+                const optionAll = document.createElement('option');
+                optionAll.value = '';
+                optionAll.textContent = 'Semua ' + label;
+                control.appendChild(optionAll);
+                uniqueValues.forEach(function (value) {
+                    const option = document.createElement('option');
+                    option.value = value;
+                    option.textContent = value;
+                    control.appendChild(option);
+                });
+            } else {
+                control = document.createElement('input');
+                control.type = 'search';
+                control.className = 'form-control form-control-sm';
+                control.placeholder = 'Cari ' + label.toLowerCase();
+            }
+
+            control.id = fieldId;
+            control.addEventListener('input', function () {
+                dt.column(columnIndex).search(control.value).draw();
+            });
+            control.addEventListener('change', function () {
+                dt.column(columnIndex).search(control.value).draw();
+            });
+
+            col.appendChild(control);
+            filterBox.appendChild(col);
+        });
+
+        if (filterBox.children.length > 0) {
+            const wrapper = table.closest('.card-datatable, .table-responsive') || table.parentElement;
+            if (wrapper) {
+                wrapper.insertBefore(filterBox, table);
+            }
+        }
     });
 });
 </script>
