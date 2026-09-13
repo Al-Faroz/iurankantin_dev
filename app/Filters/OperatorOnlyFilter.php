@@ -10,13 +10,15 @@ class OperatorOnlyFilter implements FilterInterface
 {
     public function before(RequestInterface $request, $arguments = null)
     {
+        $baseUrl = rtrim((string) config('App')->baseURL, '/');
+
         if (! session()->get('is_logged_in')) {
-            return redirect()->to(base_url('login'))
+            return redirect()->to($baseUrl . '/login')
                 ->with('error', 'Silakan login terlebih dahulu.');
         }
 
         if (session()->get('role') !== 'Operator') {
-            return redirect()->to(base_url('dashboard'))
+            return redirect()->to($baseUrl . '/dashboard')
                 ->with('error', 'Akses ini hanya tersedia untuk Operator.');
         }
 
