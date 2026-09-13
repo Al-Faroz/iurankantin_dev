@@ -17,9 +17,8 @@ $segment1 = request()->getUri()->getSegment(1);
     <link rel="stylesheet" href="<?= esc($baseUrl) ?>/assets/vendor/css/core.css">
     <link rel="stylesheet" href="<?= esc($baseUrl) ?>/assets/css/demo.css">
     <link rel="stylesheet" href="<?= esc($baseUrl) ?>/assets/vendor/libs/perfect-scrollbar/perfect-scrollbar.css">
-    <?php if (! empty($useDataTables)): ?>
-        <link rel="stylesheet" href="<?= esc($baseUrl) ?>/assets/vendor/libs/datatables/datatables.min.css">
-    <?php endif; ?>
+    <link rel="stylesheet" href="<?= esc($baseUrl) ?>/assets/vendor/libs/datatables/datatables.min.css">
+    <link rel="stylesheet" href="<?= esc($baseUrl) ?>/assets/css/custom.css">
 
     <script src="<?= esc($baseUrl) ?>/assets/vendor/js/helpers.js"></script>
     <script src="<?= esc($baseUrl) ?>/assets/js/config.js"></script>
@@ -33,8 +32,8 @@ $segment1 = request()->getUri()->getSegment(1);
                     <span class="app-brand-logo demo text-primary"><i class="icon-base bx bx-store-alt fs-2"></i></span>
                     <span class="app-brand-text demo menu-text fw-bold ms-2">Iuran Kantin</span>
                 </a>
-                <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-xl-none">
-                    <i class="icon-base bx bx-chevron-left"></i>
+                <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto" aria-label="Perkecil atau perluas menu">
+                    <i class="icon-base bx bx-chevron-left align-middle"></i>
                 </a>
             </div>
 
@@ -78,19 +77,19 @@ $segment1 = request()->getUri()->getSegment(1);
 
         <div class="layout-page">
             <nav class="layout-navbar container-xxl navbar-detached navbar navbar-expand-xl align-items-center bg-navbar-theme" id="layout-navbar">
-                <div class="layout-menu-toggle navbar-nav align-items-xl-center me-4 me-xl-0 d-xl-none">
-                    <a class="nav-item nav-link px-0 me-xl-6" href="javascript:void(0)"><i class="icon-base bx bx-menu icon-md"></i></a>
+                <div class="layout-menu-toggle navbar-nav align-items-xl-center me-3 me-xl-0 d-xl-none">
+                    <a class="nav-item nav-link px-0 me-xl-6" href="javascript:void(0)" aria-label="Buka menu"><i class="icon-base bx bx-menu icon-md"></i></a>
                 </div>
 
-                <div class="navbar-nav-right d-flex align-items-center justify-content-between w-100" id="navbar-collapse">
-                    <div>
-                        <div class="fw-semibold text-heading"><?= esc($title ?? 'Dashboard') ?></div>
-                        <small class="text-body-secondary">Aplikasi Iuran Kantin MTsN 4 Jombang</small>
+                <div class="navbar-nav-right d-flex align-items-center justify-content-between w-100 gap-3" id="navbar-collapse">
+                    <div class="app-navbar-title min-w-0">
+                        <div class="fw-semibold text-heading text-truncate"><?= esc($title ?? 'Dashboard') ?></div>
+                        <small class="text-body-secondary d-block text-truncate">Aplikasi Iuran Kantin MTsN 4 Jombang</small>
                     </div>
 
-                    <div class="dropdown">
-                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <i class="icon-base bx bx-user me-1"></i><?= esc($namaUser) ?>
+                    <div class="dropdown flex-shrink-0">
+                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle app-user-button" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <i class="icon-base bx bx-user me-1"></i><span class="app-user-name"><?= esc($namaUser) ?></span>
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
                             <li><span class="dropdown-item-text small text-body-secondary">Role: <?= esc($role) ?></span></li>
@@ -107,4 +106,4 @@ $segment1 = request()->getUri()->getSegment(1);
             </nav>
 
             <div class="content-wrapper">
-                <div class="container-xxl flex-grow-1 container-p-y">
+                <div class="container-xxl flex-grow-1 container-p-y app-content-container">
