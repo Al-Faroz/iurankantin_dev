@@ -4,20 +4,6 @@ $errorMessage = session()->getFlashdata('error');
 $validationErrors = session()->getFlashdata('errors') ?? [];
 ?>
 
-<?php if ($successMessage): ?>
-    <div class="alert alert-success alert-dismissible" role="alert">
-        <?= esc($successMessage) ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
-    </div>
-<?php endif; ?>
-
-<?php if ($errorMessage): ?>
-    <div class="alert alert-danger alert-dismissible" role="alert">
-        <?= esc($errorMessage) ?>
-        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Tutup"></button>
-    </div>
-<?php endif; ?>
-
 <?php if ($validationErrors): ?>
     <div class="alert alert-danger" role="alert">
         <strong>Periksa kembali data yang diisi:</strong>
@@ -27,4 +13,38 @@ $validationErrors = session()->getFlashdata('errors') ?? [];
             <?php endforeach; ?>
         </ul>
     </div>
+<?php endif; ?>
+
+<?php if ($successMessage || $errorMessage): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    if (!window.Swal) {
+        return;
+    }
+
+    <?php if ($successMessage): ?>
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'success',
+        title: <?= json_encode((string) $successMessage, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        showConfirmButton: false,
+        timer: 2800,
+        timerProgressBar: true
+    });
+    <?php endif; ?>
+
+    <?php if ($errorMessage): ?>
+    Swal.fire({
+        toast: true,
+        position: 'top-end',
+        icon: 'error',
+        title: <?= json_encode((string) $errorMessage, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_AMP | JSON_HEX_QUOT) ?>,
+        showConfirmButton: false,
+        timer: 4200,
+        timerProgressBar: true
+    });
+    <?php endif; ?>
+});
+</script>
 <?php endif; ?>
