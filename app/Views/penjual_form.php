@@ -10,6 +10,7 @@ $namaPenjual = old('nama_penjual') ?: ($penjual['nama_penjual'] ?? '');
 $idGolongan = old('id_golongan') ?: ($penjual['id_golongan'] ?? '');
 $noHp = old('no_hp') ?: ($penjual['no_hp'] ?? '');
 $lokasiLapak = old('lokasi_lapak') ?: ($penjual['lokasi_lapak'] ?? '');
+$alamat = old('alamat') ?: ($penjual['alamat'] ?? '');
 $statusAktif = old('status_aktif') ?: ($penjual['status_aktif'] ?? 'Aktif');
 $tanggalDaftar = old('tanggal_daftar') ?: ($penjual['tanggal_daftar'] ?? $today);
 ?>
@@ -52,7 +53,13 @@ $tanggalDaftar = old('tanggal_daftar') ?: ($penjual['tanggal_daftar'] ?? $today)
 
                         <div class="col-12 col-md-6">
                             <label for="lokasi_lapak" class="form-label">Lokasi / Lapak</label>
-                            <input type="text" class="form-control" id="lokasi_lapak" name="lokasi_lapak" value="<?= esc((string) $lokasiLapak) ?>" maxlength="100" placeholder="Contoh: Lapak A3">
+                            <input type="text" class="form-control" id="lokasi_lapak" name="lokasi_lapak" value="<?= esc((string) $lokasiLapak) ?>" maxlength="100" placeholder="Contoh: Kantin Utama">
+                        </div>
+
+                        <div class="col-12">
+                            <label for="alamat" class="form-label">Alamat</label>
+                            <textarea class="form-control" id="alamat" name="alamat" rows="3" maxlength="255" placeholder="Alamat tempat tinggal penjual"><?= esc((string) $alamat) ?></textarea>
+                            <div class="form-text">Maksimal 255 karakter. Alamat ini juga akan dicetak pada Kartu Anggota.</div>
                         </div>
 
                         <div class="col-12 col-md-6">
