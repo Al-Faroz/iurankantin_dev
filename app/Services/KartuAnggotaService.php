@@ -46,8 +46,8 @@ class KartuAnggotaService
             $update['kode_verifikasi'] = bin2hex(random_bytes(32));
         }
 
-        if ($update !== []) {
-            $this->penjualModel->update($idPenjual, $update);
+        if ($update !== [] && $this->penjualModel->update($idPenjual, $update) === false) {
+            throw new RuntimeException('Kode kartu gagal disimpan ke database. Silakan coba kembali.');
         }
 
         return $this->detail($idPenjual);
