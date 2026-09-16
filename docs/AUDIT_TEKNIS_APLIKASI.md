@@ -2,7 +2,7 @@
 
 **Tanggal audit:** 16 September 2026
 
-Dokumen ini memisahkan hasil audit teknis dari Dokumen Acuan. Dokumen Acuan tetap berfungsi sebagai baseline aplikasi; file ini mencatat bug yang ditemukan, perbaikan yang sudah dilakukan, risiko yang masih tersisa, dan rekomendasi prioritas berikutnya.
+Dokumen ini memisahkan hasil audit teknis dari Dokumen Acuan. Dokumen Acuan berfungsi sebagai baseline aplikasi; file ini mencatat bug yang ditemukan, perbaikan yang sudah dilakukan, risiko yang masih tersisa, dan prioritas berikutnya.
 
 ## 1. Ruang Lingkup Audit
 
@@ -18,189 +18,140 @@ Area yang diperiksa:
 - Laporan, Rekap Kas, dan export Excel;
 - Kartu Anggota, QR, dan scanner;
 - upload/branding;
-- struktur migration/schema;
-- `.htaccess` dan deployment shared hosting;
+- migration/schema;
+- `.htaccess` dan shared hosting;
 - dependency Composer;
 - CI dan automated test.
 
-## 2. Bug yang Ditemukan dan Sudah Diperbaiki
+## 2. Bug/Robustness yang Sudah Diperbaiki
 
-### A. Session lama masih mempercayai role/status saat login
+### A. Session lama masih mempercayai role/status login
 
-**Risiko:** akun yang sudah dinonaktifkan atau diubah rolenya dapat tetap memakai session lama sampai logout/kedaluwarsa.
+Request terproteksi sekarang memvalidasi `id_user`, `status_aktif`, dan role terhadap database. Session nama/username/role disinkronkan dengan database.
 
-**Perbaikan:** request terproteksi sekarang memvalidasi `id_user`, `status_aktif`, dan role terhadap database. Data session nama/username/role disinkronkan dengan database.
+**Status:** selesai.
 
-**Status:** diperbaiki.
+### B. Koreksi Setoran tidak membersihkan bukti foto
 
-### B. Hapus Setoran melalui Koreksi tidak membersihkan bukti foto
+Koreksi Setoran sekarang mengambil record lama, memastikan hard delete berhasil, lalu menghapus file bukti terkait.
 
-**Risiko:** file `uploads/bukti_setoran/...` menjadi file yatim setelah record database dihapus.
-
-**Perbaikan:** Koreksi Setoran mengambil record lama, memastikan hard delete database berhasil, lalu membersihkan bukti foto yang terkait.
-
-**Status:** diperbaiki.
+**Status:** selesai.
 
 ### C. File transaksi dapat terhapus walaupun delete database gagal
 
-**Risiko:** bukti foto hilang sementara record transaksi masih ada bila operasi database gagal pada production.
+Penghapusan Pengeluaran/Setoran sekarang memeriksa hasil database. File hanya dibersihkan setelah hard delete berhasil.
 
-**Perbaikan:** delete Pengeluaran/Setoran sekarang diperiksa hasilnya. File bukti baru dihapus setelah hard delete database berhasil.
+**Status:** selesai.
 
-**Status:** diperbaiki.
+### D. Upload nota dapat menjadi yatim bila insert gagal
 
-### D. Upload nota dapat menjadi yatim bila insert Pengeluaran gagal
+Hasil insert Pengeluaran diperiksa dan file baru dibersihkan bila write gagal.
 
-**Risiko:** upload berhasil tetapi insert database gagal; sebelumnya controller tetap dapat meninggalkan file tanpa record.
+**Status:** selesai.
 
-**Perbaikan:** hasil insert diperiksa dan file baru dibersihkan bila insert gagal.
+### E. Branding lama berpotensi terhapus bila update Setting gagal
 
-**Status:** diperbaiki.
+File lama baru dihapus setelah insert/update Setting berhasil menyimpan path baru.
 
-### E. Branding lama berpotensi terhapus bila penyimpanan Setting gagal
-
-**Risiko:** file baru sudah diupload, update database gagal, tetapi file lama dapat dibersihkan sehingga path database menunjuk file yang hilang.
-
-**Perbaikan:** hasil insert/update Setting sekarang diperiksa. File lama hanya dihapus setelah database berhasil menyimpan path baru.
-
-**Status:** diperbaiki.
+**Status:** selesai.
 
 ### F. Formula injection pada export Excel
 
-**Risiko:** teks dari input pengguna yang diawali karakter formula dapat ditafsirkan sebagai formula spreadsheet. Selain itu teks seperti nomor HP berawalan nol dapat berubah tipe.
+Nilai PHP bertipe string diekspor sebagai `TYPE_STRING`, sementara data numerik tetap sebagai angka.
 
-**Perbaikan:** seluruh nilai PHP bertipe string diekspor dengan `TYPE_STRING`; data numerik tetap ditulis sebagai angka.
+**Status:** selesai.
 
-**Status:** diperbaiki.
+### G. Filter tanggal hanya memeriksa pola
 
-### G. Filter tanggal hanya memeriksa pola, bukan kalender valid
+Laporan dan Koreksi sekarang memvalidasi tanggal kalender menggunakan `DateTimeImmutable::createFromFormat()`.
 
-**Risiko:** nilai seperti `2026-99-99` memenuhi pola `YYYY-MM-DD` tetapi bukan tanggal valid.
+**Status:** selesai.
 
-**Perbaikan:** filter Laporan dan Koreksi sekarang memvalidasi tanggal menggunakan `DateTimeImmutable::createFromFormat()` dan pencocokan hasil format.
+### H. Folder bukti Setoran belum konsisten di `.gitignore`
 
-**Status:** diperbaiki.
+`uploads/bukti_setoran/` sudah dicantumkan bersama upload dinamis lain.
 
-### H. Folder bukti Setoran belum tercermin di `.gitignore`
+**Status:** selesai.
 
-**Risiko:** struktur source lokal membingungkan dan folder upload baru mudah terlewat.
+### I. CRUD master dapat memberi pesan berhasil saat write gagal
 
-**Perbaikan:** exception folder `uploads/bukti_setoran/` ditambahkan bersama folder upload lain.
+Write Penjual, Golongan, Kategori Pengeluaran, dan User sekarang memeriksa hasil database sebelum menampilkan sukses.
 
-**Status:** diperbaiki.
+**Status:** selesai.
 
-### I. CRUD master dapat memberi pesan berhasil saat write database gagal
+### J. Generate kode kartu tidak memeriksa kegagalan update
 
-**Risiko:** pada production dengan detail error database dimatikan, insert/update/archive yang gagal dapat diikuti redirect sukses bila return write tidak diperiksa.
+`ensureCodes()` menghentikan proses bila penyimpanan `kode_kartu`/`kode_verifikasi` gagal.
 
-**Perbaikan:** write Penjual, Golongan, Kategori Pengeluaran, dan User sekarang memeriksa hasil database sebelum menampilkan pesan berhasil.
+**Status:** selesai.
 
-**Status:** diperbaiki.
+### K. Duplikasi Iuran Penjual pada tanggal yang sama
 
-### J. Generate kode kartu tidak memeriksa kegagalan update database
+Aturan bisnis sudah diputuskan: **satu Penjual maksimal satu transaksi Iuran pada satu tanggal**.
 
-**Risiko:** render/download kartu dapat berlanjut walaupun `kode_kartu`/`kode_verifikasi` gagal dipersistenkan.
+Perbaikan yang diterapkan:
 
-**Perbaikan:** `ensureCodes()` sekarang menghentikan proses dengan error bila update kode gagal.
+1. Input Iuran memuat transaksi yang sudah ada pada tanggal terpilih;
+2. Penjual yang sudah tercatat ditampilkan sebagai `Tercatat` dan tidak dapat dicentang lagi;
+3. perubahan tanggal Input Iuran memuat ulang status pembayaran;
+4. `IuranService` memeriksa duplikasi sebelum insert batch;
+5. unique index database `uniq_iuran_penjual_tanggal (id_penjual, tanggal)` disediakan melalui migration `100011`;
+6. migration menghentikan proses bila masih ada duplikasi historis;
+7. migration idempotent terhadap index yang sudah dibuat manual melalui phpMyAdmin.
 
-**Status:** diperbaiki.
+**Status:** implementasi source selesai; unique index production harus diterapkan setelah verifikasi data historis tidak mengandung duplikasi.
 
-## 3. Temuan Prioritas Tinggi yang Membutuhkan Keputusan Bisnis
+## 3. Temuan Prioritas Tinggi yang Masih Tersisa
 
-### 3.1 Duplikasi Iuran Penjual pada tanggal yang sama
+### 3.1 Histori Golongan Iuran mengikuti Golongan Penjual saat ini
 
-Saat ini database tidak memiliki unique constraint `(id_penjual, tanggal)` dan service Input Iuran tidak menolak record lama pada tanggal yang sama.
+`transaksi_iuran` hanya menyimpan `id_penjual`, tanggal, dan nominal. Laporan mengambil Golongan melalui data Penjual saat laporan dibuka.
 
-**Dampak:** Operator dapat membuka kembali tanggal yang sama dan menyimpan Penjual yang sama sekali lagi sehingga pemasukan dan saldo bertambah dua kali.
+**Dampak:** bila Penjual pindah Golongan, transaksi lama dapat terlihat sebagai Golongan baru dan filter histori ikut berubah.
 
-**Keputusan yang dibutuhkan:** pastikan apakah aturan bisnis adalah maksimal satu transaksi Iuran per Penjual per tanggal.
+**Rekomendasi:** bila histori Golongan harus immutable, simpan snapshot Golongan pada transaksi.
 
-Jika jawabannya **ya**, rekomendasi implementasi:
+### 3.2 File bukti transaksi berada di web root publik
 
-1. validasi server sebelum insert batch;
-2. tampilkan Penjual yang sudah tercatat sebagai sudah bayar/disabled saat membuka tanggal tersebut;
-3. tambahkan unique index database melalui SQL phpMyAdmin:
+Bukti Nota dan Bukti Setoran berada di `uploads/` dan dapat dibuka dengan URL langsung bila nama URL diketahui. Nama file acak dan eksekusi script sudah diblokir, tetapi file belum berada di storage privat.
 
-```sql
-ALTER TABLE `transaksi_iuran`
-ADD UNIQUE KEY `uniq_iuran_penjual_tanggal` (`id_penjual`, `tanggal`);
-```
+**Rekomendasi:** pindahkan ke `writable/uploads/` dan sajikan melalui route terautentikasi Operator.
 
-Sebelum menambah index harus dipastikan tidak ada duplikasi historis.
+### 3.3 Schema `bukti_setoran` masih di luar migration
 
-### 3.2 Histori Golongan Iuran mengikuti Golongan Penjual saat ini
+Kolom `bukti_setoran` diterapkan manual melalui phpMyAdmin untuk deployment existing. Fresh install dengan migration saja belum menghasilkan field tersebut bila SQL manual tidak dijalankan.
 
-`transaksi_iuran` hanya menyimpan `id_penjual`, tanggal, dan nominal. Laporan Iuran mengambil nama Golongan melalui relasi Penjual **saat laporan dibuka**.
-
-**Dampak:** bila Penjual berpindah Golongan, transaksi lama akan terlihat seolah-olah berasal dari Golongan baru. Filter histori berdasarkan Golongan juga ikut berubah.
-
-**Rekomendasi:** bila histori Golongan harus immutable, simpan snapshot Golongan pada transaksi saat pembayaran, misalnya `id_golongan_snapshot` dan/atau `nama_golongan_snapshot`.
-
-Perubahan ini membutuhkan SQL database dan keputusan format histori sebelum implementasi.
-
-### 3.3 File bukti transaksi berada di web root publik
-
-Bukti Nota dan Bukti Setoran saat ini disimpan di `uploads/` dan dibuka dengan URL langsung. Nama file acak dan eksekusi script sudah diblokir, tetapi file tetap dapat diakses tanpa autentikasi bila URL diketahui.
-
-**Dampak:** bukti operasional bukan data publik idealnya tidak disajikan langsung dari document root.
-
-**Rekomendasi arsitektur:** pindahkan bukti ke storage privat seperti `writable/uploads/` dan sediakan route download/view yang mewajibkan Operator. Ini memerlukan pemindahan file existing dan perubahan URL/path, sehingga sebaiknya dilakukan sebagai pekerjaan terencana.
-
-### 3.4 Schema `bukti_setoran` berada di luar migration
-
-Kolom `bukti_setoran` sengaja diterapkan manual melalui phpMyAdmin karena pola deployment hosting. Akibatnya `php spark migrate` pada database kosong belum cukup menghasilkan seluruh schema yang dibutuhkan source saat ini.
-
-**Mitigasi saat ini:** README, Dokumen Acuan, dan checklist deployment sudah mencantumkan SQL manual yang wajib dijalankan.
-
-**Risiko tersisa:** admin baru dapat melewatkan SQL manual.
-
-**Rekomendasi:** pertahankan satu checklist/schema SQL manual yang menjadi sumber kebenaran untuk perubahan hosting non-migration, atau pada masa depan putuskan kembali apakah migration boleh digunakan untuk fresh install tetapi SQL tetap disediakan untuk hosting existing.
+**Rekomendasi:** pada pekerjaan schema berikutnya, putuskan apakah perubahan manual existing tetap dipertahankan sebagai SQL operasional sekaligus ditambahkan migration idempotent untuk fresh install.
 
 ## 4. Temuan Prioritas Menengah
 
 ### 4.1 Tanggal transaksi masa depan masih diizinkan
 
-Input Iuran, Pengeluaran, dan Setoran memvalidasi format tanggal tetapi tidak menolak tanggal sesudah hari ini.
+Input Iuran, Pengeluaran, dan Setoran memvalidasi format tetapi belum menolak tanggal setelah hari ini.
 
-Dashboard card/grafik bulan berjalan dibatasi sampai hari ini, sedangkan `Saldo Kas` menjumlahkan seluruh transaksi tanpa batas tanggal.
-
-**Dampak:** bila transaksi masa depan tersimpan, saldo dapat memasukkan transaksi yang belum muncul pada tren/card periode berjalan.
-
-**Rekomendasi:** tentukan apakah future date harus ditolak. Bila ya, tambahkan validasi server pada seluruh transaksi keuangan.
+**Dampak:** Saldo Kas dapat memasukkan transaksi masa depan sementara beberapa card/grafik hanya menghitung sampai hari ini.
 
 ### 4.2 Setoran dapat melebihi saldo kas
 
-Tidak ada validasi yang membatasi nominal Setoran Resmi terhadap saldo kas yang tersedia.
+Tidak ada validasi yang membatasi Setoran Resmi terhadap saldo kas tersedia.
 
 **Dampak:** salah input dapat membuat saldo negatif.
 
-**Rekomendasi:** minimal tampilkan warning/konfirmasi ketika setoran melebihi saldo, atau blokir jika aturan bisnis memang tidak pernah mengizinkan saldo negatif.
-
 ### 4.3 Download Kartu melalui GET dapat membuat kode baru
 
-Route download JPG/ZIP memanggil `ensureCodes()`. Bila Penjual belum punya `kode_kartu`/`kode_verifikasi`, request GET download dapat menulis ke database.
+Route download dapat memanggil `ensureCodes()`, sehingga GET berpotensi menulis state bila kode belum ada.
 
-**Dampak teknis:** GET idealnya idempotent dan tidak melakukan mutasi state.
+**Rekomendasi:** buat kode saat Penjual dibuat, wajibkan Generate sebelum download, atau ubah flow mutasi menjadi POST.
 
-**Rekomendasi:** pilih salah satu pola: generate kode saat Penjual dibuat, wajib tekan tombol Generate sebelum download, atau ubah flow download menjadi POST bila perlu membuat state.
+### 4.4 Belum ada audit trail perubahan transaksi keuangan
 
-### 4.4 Tidak ada audit trail perubahan transaksi keuangan
+Edit Setoran dan hard delete transaksi belum memiliki tabel log perubahan sebelum/sesudah.
 
-Transaksi menyimpan Operator pencatat awal, tetapi edit Setoran dan hard delete Koreksi tidak memiliki tabel audit tersendiri.
+### 4.5 Upload branding belum memiliki batas dimensi piksel
 
-**Dampak:** setelah koreksi, tidak ada histori siapa mengubah/menghapus nilai lama selain log aplikasi/server bila tersedia.
-
-**Rekomendasi:** untuk kebutuhan pertanggungjawaban lebih tinggi, tambahkan audit log transaksi (aksi, user, waktu, data sebelum/sesudah).
-
-### 4.5 Upload branding belum dibatasi berdasarkan dimensi piksel
-
-Ukuran file branding dibatasi, tetapi gambar dengan dimensi sangat besar masih dapat membutuhkan memori tinggi saat diproses/render.
-
-**Rekomendasi:** tambahkan validasi dimensi maksimum atau normalisasi background kartu ke ukuran canvas yang dibutuhkan.
+Batas ukuran file ada, tetapi gambar dengan dimensi sangat besar masih dapat meningkatkan penggunaan memori ketika dirender.
 
 ## 5. Quality Assurance dan Automated Test
-
-Repository masih didominasi test bawaan CodeIgniter. Belum ada coverage otomatis yang memverifikasi aturan bisnis utama aplikasi.
 
 GitHub Actions saat ini menjalankan:
 
@@ -210,64 +161,59 @@ GitHub Actions saat ini menjalankan:
 - JavaScript syntax lint;
 - `php spark routes`.
 
-**Rekomendasi prioritas tinggi:** tambahkan test aplikasi untuk:
+Automated test aplikasi masih terbatas. Prioritas test berikutnya:
 
-- autentikasi dan role Operator/Pimpinan;
+- autentikasi Operator/Pimpinan;
 - akun Nonaktif kehilangan akses;
+- satu Penjual maksimal satu Iuran per tanggal;
 - Input Iuran batch dan rollback;
-- pencegahan duplicate Iuran jika aturan telah disetujui;
 - saldo kas;
-- agregasi Iuran harian Rekap Kas;
+- Rekap Kas;
 - filter periode;
-- export filename dan formula-safe text;
-- siklus upload/hapus bukti;
-- verifikasi QR publik hanya menampilkan data minimum.
+- export Excel formula-safe;
+- lifecycle file bukti;
+- QR publik hanya menampilkan data minimum.
 
-Setelah test aplikasi stabil, tambahkan PHPUnit ke workflow CI.
+Setelah test aplikasi stabil, PHPUnit sebaiknya ditambahkan ke workflow CI.
 
 ## 6. Dependency dan Supply Chain
 
-`composer.lock` saat audit mengunci antara lain:
+`composer.lock` pada audit mengunci dependency utama modern, termasuk CodeIgniter 4.7.4, Dompdf 3.1.6, PhpSpreadsheet 5.9.0, dan Endroid QR Code 6.0.9.
 
-- CodeIgniter Framework `v4.7.4`;
-- Dompdf `v3.1.6`;
-- PhpSpreadsheet `5.9.0`;
-- Endroid QR Code `6.0.9`.
+Rekomendasi operasional: jalankan `composer audit --locked` sebelum paket deployment production dan pertimbangkan menambahkannya ke CI.
 
-Versi CodeIgniter 4.7.4 mencakup perbaikan security release Juli 2026. Dompdf 3.1.6 juga merupakan versi patch untuk advisory chroot Juli 2026. PhpSpreadsheet 5.9.0 adalah rilis yang lebih baru dari patch keamanan seri 5.8.x.
-
-**Rekomendasi:** jalankan `composer audit --locked` sebelum setiap paket deployment production dan pertimbangkan menambahkannya ke CI setelah memastikan akses advisory Composer pada GitHub Actions stabil.
-
-## 7. Temuan yang Dinilai Baik / Sudah Memadai
+## 7. Area yang Sudah Memadai
 
 - Auto Routing nonaktif dan route eksplisit.
-- Aksi tulis utama menggunakan POST + CSRF.
-- Operator/Pimpinan dipisahkan di route dan UI.
+- POST + CSRF pada aksi tulis.
+- Operator/Pimpinan dipisah di route dan UI.
 - Login throttling aktif.
-- Session database aktif.
-- Password menggunakan hash bawaan PHP.
-- DBDebug production dinonaktifkan.
+- Database session aktif.
+- Password hashing standar PHP.
+- DBDebug production nonaktif.
 - Secure Headers global aktif.
-- Source/configuration diblokir oleh `.htaccess`.
-- Upload memakai nama file server-side acak dan direktori upload memblokir script executable.
-- Dompdf mematikan remote resource dan PHP execution.
-- Scanner QR membatasi hasil ke origin/path verifikasi aplikasi sendiri.
-- Halaman QR publik tidak mengambil No. HP/alamat/riwayat transaksi.
-- File upload transaksi dikompresi dan mempunyai batas ukuran.
-- Setoran tetap memakai alur dua tahap sehingga cetak PDF tidak langsung mengurangi saldo.
-- Rekap Kas menghitung saldo awal dan saldo berjalan secara kronologis.
-- Export laporan mengikuti filter periode dan filename membawa periode.
-- UI utama sudah mobile-responsive dan Dashboard dibuat compact.
+- Source/configuration diblokir `.htaccess`.
+- Upload menggunakan nama server-side acak.
+- Dompdf tidak mengizinkan remote resource/PHP execution.
+- Scanner QR membatasi URL ke origin/path aplikasi.
+- QR publik tidak mengambil data sensitif internal.
+- Upload transaksi dikompresi dan dibatasi ukuran.
+- Setoran tetap memakai dua tahap.
+- Rekap Kas menghitung saldo awal dan berjalan.
+- Export mengikuti filter dan filename periode.
+- Input Iuran sudah memiliki perlindungan duplikasi berlapis.
+- UI utama mobile-responsive.
 
-## 8. Urutan Pekerjaan yang Direkomendasikan
+## 8. Urutan Pekerjaan Berikutnya
 
-Prioritas berikutnya setelah audit ini:
+Prioritas setelah implementasi duplicate Iuran:
 
-1. putuskan aturan **duplicate Iuran per Penjual per tanggal**;
-2. putuskan kebutuhan **snapshot Golongan historis**;
-3. rencanakan **storage privat untuk bukti Nota/Setoran**;
-4. tambah **automated test aplikasi** dan jalankan PHPUnit di CI;
-5. putuskan kebijakan **tanggal masa depan** dan **Setoran melebihi saldo**;
-6. pertimbangkan audit trail transaksi jika aplikasi digunakan untuk pertanggungjawaban formal jangka panjang.
+1. putuskan kebutuhan **snapshot Golongan historis**;
+2. rencanakan **storage privat bukti Nota/Setoran**;
+3. tambah **automated test aplikasi** dan PHPUnit di CI;
+4. putuskan kebijakan **tanggal masa depan**;
+5. putuskan apakah **Setoran melebihi saldo** harus diblokir;
+6. pertimbangkan audit trail transaksi;
+7. tambahkan batas dimensi upload branding.
 
-Perubahan pada poin 1, 2, 3, dan 5 tidak dilakukan otomatis dalam audit karena mengubah aturan bisnis, schema, atau alur operasional.
+Poin tersebut tidak diubah otomatis karena memengaruhi schema, aturan bisnis, atau alur operasional.
