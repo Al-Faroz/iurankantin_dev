@@ -26,9 +26,11 @@ class BuktiSetoranService
             throw new RuntimeException('Ukuran file bukti setoran maksimal 10 MB sebelum kompresi.');
         }
 
-        $directory = ROOTPATH . 'uploads/bukti_setoran';
+        // Bukti transaksi baru disimpan di writable agar tidak dapat diakses langsung
+        // melalui URL web. File hanya disajikan lewat route Operator terautentikasi.
+        $directory = WRITEPATH . 'uploads/bukti_setoran';
         if (! is_dir($directory) && ! mkdir($directory, 0755, true) && ! is_dir($directory)) {
-            throw new RuntimeException('Folder upload bukti setoran tidak dapat dibuat.');
+            throw new RuntimeException('Folder privat bukti setoran tidak dapat dibuat.');
         }
 
         $manager = new ImageManager(new Driver());
@@ -51,6 +53,6 @@ class BuktiSetoranService
             throw new RuntimeException('Foto bukti setoran masih lebih dari 500 KB setelah kompresi. Gunakan foto dengan resolusi lebih kecil.');
         }
 
-        return 'uploads/bukti_setoran/' . $filename;
+        return 'writable/uploads/bukti_setoran/' . $filename;
     }
 }
