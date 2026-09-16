@@ -72,7 +72,7 @@ class Pengeluaran extends BaseController
                 $buktiPath = (new BuktiNotaService())->simpan($file);
             }
 
-            $this->model->insert([
+            $saved = $this->model->insert([
                 'tanggal' => (string) $this->request->getPost('tanggal'),
                 'id_kategori_keluar' => $idKategori,
                 'nominal' => (float) $this->request->getPost('nominal'),
@@ -81,9 +81,16 @@ class Pengeluaran extends BaseController
                 'id_operator' => (int) session()->get('id_user'),
                 'created_at' => date('Y-m-d H:i:s'),
             ]);
+
+            if ($saved === false) {
+                throw new RuntimeException('Pengeluaran gagal disimpan ke database. Silakan coba kembali.');
+            }
         } catch (RuntimeException $e) {
-            if ($buktiPath !== null) {
-                @unlink(ROOTPATH . $buktiPath);
+            if ($buktiPath !== null && str_starts_with($buktiPath, 'uploads/bukti_nota/')) {
+                $fullPath = ROOTPATH . $buktiPath;
+                if (is_file($fullPath)) {
+                    @unlink($fullPath);
+                }
             }
 
             return redirect()->back()->withInput()->with('error', $e->getMessage());
