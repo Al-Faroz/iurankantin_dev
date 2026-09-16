@@ -16,7 +16,9 @@
 /uploads/*
 !/uploads/.htaccess
 !/uploads/bukti_nota/
+!/uploads/bukti_nota/.htaccess
 !/uploads/bukti_setoran/
+!/uploads/bukti_setoran/.htaccess
 !/uploads/branding/
 
 # OS / editor
