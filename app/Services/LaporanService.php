@@ -72,19 +72,26 @@ class LaporanService
         $db = db_connect();
         $entries = [];
 
+        // Rekap kas hanya membutuhkan total iuran per tanggal, bukan rincian per penjual.
+        // Rincian individual tetap tersedia di menu Laporan Iuran.
         $iuran = $db->table('transaksi_iuran')
-            ->select('transaksi_iuran.id_transaksi AS id, transaksi_iuran.tanggal, transaksi_iuran.nominal, transaksi_iuran.keterangan, penjual.nama_penjual')
-            ->join('penjual', 'penjual.id_penjual = transaksi_iuran.id_penjual');
+            ->select('transaksi_iuran.tanggal, SUM(transaksi_iuran.nominal) AS total_nominal, COUNT(transaksi_iuran.id_transaksi) AS jumlah_transaksi', false);
         $this->applyDateFilter($iuran, 'transaksi_iuran.tanggal', $filter);
 
-        foreach ($iuran->get()->getResultArray() as $row) {
+        $iuranRows = $iuran
+            ->groupBy('transaksi_iuran.tanggal')
+            ->get()
+            ->getResultArray();
+
+        foreach ($iuranRows as $row) {
+            $jumlahTransaksi = (int) ($row['jumlah_transaksi'] ?? 0);
             $entries[] = [
                 'tanggal' => $row['tanggal'],
                 'urutan' => 1,
-                'id' => (int) $row['id'],
+                'id' => 0,
                 'jenis' => 'Iuran',
-                'uraian' => 'Iuran - ' . $row['nama_penjual'] . ($row['keterangan'] ? ' (' . $row['keterangan'] . ')' : ''),
-                'masuk' => (float) $row['nominal'],
+                'uraian' => 'Total Iuran Harian' . ($jumlahTransaksi > 0 ? ' (' . $jumlahTransaksi . ' transaksi)' : ''),
+                'masuk' => (float) ($row['total_nominal'] ?? 0),
                 'keluar' => 0.0,
             ];
         }
