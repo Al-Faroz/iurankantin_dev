@@ -65,9 +65,11 @@ Ketentuan keamanan aplikasi:
 - DBDebug production dinonaktifkan;
 - production wajib HTTPS dan secure cookie;
 - `.htaccess` root memblokir source/configuration sensitif;
-- `uploads/.htaccess` memblokir directory listing dan eksekusi script umum;
 - Dompdf menonaktifkan remote resource dan PHP execution;
-- export Excel menulis input pengguna sebagai string literal untuk mencegah formula injection.
+- export Excel menulis input pengguna sebagai string literal untuk mencegah formula injection;
+- bukti transaksi hanya dapat dibuka melalui route Operator terautentikasi;
+- file bukti baru disimpan di `writable/uploads/`, bukan document root;
+- file bukti legacy di `uploads/bukti_nota/` dan `uploads/bukti_setoran/` diblokir dari HTTP langsung melalui root `.htaccess` dan `.htaccess` folder masing-masing.
 
 ## 5. Struktur Database Operasional
 
@@ -134,19 +136,19 @@ Perlindungan dilakukan berlapis:
 2. service server menolak request duplikat;
 3. database menggunakan unique index `uniq_iuran_penjual_tanggal (id_penjual, tanggal)`.
 
-Setiap transaksi baru menyimpan snapshot Golongan agar histori Laporan Iuran tidak berubah ketika Golongan Penjual, nama Golongan, atau nominal default Golongan diubah kemudian. Snapshot tidak mengubah nominal transaksi aktual.
-
-Transaksi Iuran tidak memakai soft delete. Data salah dikoreksi melalui hard delete pada menu Koreksi Transaksi.
+Setiap transaksi baru menyimpan snapshot Golongan agar histori Laporan Iuran tidak berubah ketika Golongan Penjual, nama Golongan, atau nominal default Golongan diubah kemudian.
 
 ### 5.7 `transaksi_pengeluaran`
 
 Field utama: `id_pengeluaran`, `tanggal`, `id_kategori_keluar`, `nominal`, `keterangan`, `bukti_nota`, `id_operator`, `created_at`.
 
+`bukti_nota` menyimpan path internal. Record lama dapat menunjuk `uploads/bukti_nota/...`; upload baru menunjuk `writable/uploads/bukti_nota/...`. Keduanya hanya disajikan melalui route Operator.
+
 ### 5.8 `setoran_pimpinan`
 
 Field utama: `id_setoran`, `tanggal_form`, `periode_awal`, `periode_akhir`, `nominal`, `keterangan`, `bukti_setoran`, `id_operator`, `created_at`.
 
-`bukti_setoran` wajib untuk Setoran Resmi baru; record lama dapat memiliki nilai `NULL`.
+`bukti_setoran` wajib untuk Setoran Resmi baru. Record lama dapat memiliki `NULL` atau path legacy `uploads/bukti_setoran/...`; upload baru menggunakan `writable/uploads/bukti_setoran/...`.
 
 ### 5.9 `ci_sessions`
 
@@ -160,21 +162,26 @@ Migration aplikasi saat ini:
 - `100009` — `ci_sessions`;
 - `100010` — penambahan `alamat` pada `penjual`;
 - `100011` — unique index satu Iuran per Penjual per tanggal;
-- `100012` — snapshot Golongan pada `transaksi_iuran`.
+- `100012` — snapshot Golongan pada `transaksi_iuran`;
+- `100013` — penambahan `bukti_setoran` pada `setoran_pimpinan` untuk fresh install.
 
-Migration `100011` bersifat aman terhadap index yang sudah dibuat manual: bila index sudah ada, migration tidak membuat ulang. Sebelum membuat index, migration memeriksa duplikasi historis dan menghentikan proses bila masih ditemukan data ganda.
+Migration `100011`, `100012`, dan `100013` dibuat idempotent terhadap schema yang sudah diterapkan manual pada hosting existing.
 
-Migration `100012` bersifat idempotent terhadap kolom/index snapshot yang sudah dibuat manual. Data historis yang belum mempunyai snapshot di-*backfill* menggunakan kondisi Golongan Penjual saat migration/SQL dijalankan. Karena sistem sebelumnya tidak menyimpan histori perubahan Golongan, keadaan Golongan sebelum tanggal backfill tidak dapat direkonstruksi otomatis.
+Untuk hosting tanpa terminal, perubahan database tetap diberikan dalam bentuk SQL phpMyAdmin. File SQL snapshot Golongan tersedia di:
 
-Kolom `bukti_setoran` merupakan perubahan schema operasional yang diterapkan manual melalui SQL/phpMyAdmin pada hosting existing:
+```text
+docs/SQL_100012_GOLONGAN_SNAPSHOT_IURAN.sql
+```
+
+Kolom `bukti_setoran` dapat diterapkan manual dengan:
 
 ```sql
 ALTER TABLE `setoran_pimpinan`
-ADD COLUMN `bukti_setoran` VARCHAR(255) NULL
+ADD COLUMN IF NOT EXISTS `bukti_setoran` VARCHAR(255) NULL
 AFTER `keterangan`;
 ```
 
-Untuk unique Iuran, cek data lama lebih dulu:
+Untuk unique Iuran, cek duplikasi historis lebih dulu:
 
 ```sql
 SELECT `id_penjual`, `tanggal`, COUNT(*) AS `jumlah`
@@ -183,23 +190,14 @@ GROUP BY `id_penjual`, `tanggal`
 HAVING COUNT(*) > 1;
 ```
 
-Jika query tersebut menghasilkan **0 baris**, unique index dapat diterapkan manual:
+Jika hasilnya 0 baris:
 
 ```sql
 ALTER TABLE `transaksi_iuran`
 ADD UNIQUE KEY `uniq_iuran_penjual_tanggal` (`id_penjual`, `tanggal`);
 ```
 
-Untuk snapshot Golongan, gunakan SQL lengkap pada `docs/SQL_100012_GOLONGAN_SNAPSHOT_IURAN.sql`. Inti perubahan schema:
-
-```sql
-ALTER TABLE `transaksi_iuran`
-    ADD COLUMN IF NOT EXISTS `id_golongan_snapshot` INT(11) UNSIGNED NULL AFTER `id_penjual`,
-    ADD COLUMN IF NOT EXISTS `nama_golongan_snapshot` VARCHAR(100) NULL AFTER `id_golongan_snapshot`,
-    ADD COLUMN IF NOT EXISTS `nominal_golongan_snapshot` DECIMAL(12,2) NULL AFTER `nama_golongan_snapshot`;
-```
-
-SQL lengkap juga melakukan backfill data lama, membuat index `idx_iuran_golongan_snapshot`, dan menyediakan query verifikasi.
+Data historis snapshot Golongan di-*backfill* memakai kondisi Golongan Penjual saat SQL/migration dijalankan. Perubahan Golongan yang terjadi sebelum fitur snapshot tersedia tidak dapat direkonstruksi otomatis.
 
 Jangan menjalankan seeder pada database operasional existing untuk menerapkan perubahan schema.
 
@@ -222,18 +220,17 @@ Aturan proses:
 - Penjual diurutkan berdasarkan nominal golongan tertinggi lalu nama A–Z;
 - Penjual yang belum tercatat memiliki switch `Bayar`;
 - nominal diprefill dari nominal golongan dan boleh dioverride;
-- Penjual yang sudah tercatat tampil berstatus **Tercatat** dan tidak dapat dipilih lagi;
-- Penjual tidak dicentang tidak disimpan;
+- Penjual yang sudah tercatat tampil **Tercatat** dan tidak dapat dipilih lagi;
 - minimal satu Penjual harus dipilih;
 - nominal terpilih harus lebih dari nol;
 - service server memeriksa duplikasi lagi sebelum insert;
-- saat insert, ID/nama/nominal default Golongan disalin ke field snapshot transaksi;
+- saat insert, ID/nama/nominal default Golongan disalin ke snapshot transaksi;
 - penyimpanan batch menggunakan database transaction;
 - unique index database menjadi perlindungan terakhir terhadap request bersamaan;
 - total Penjual terpilih dan nominal dihitung langsung di UI;
 - layout dibuat compact untuk Chrome Android.
 
-Jika transaksi lama salah, Operator harus menghapusnya melalui Koreksi Transaksi terlebih dahulu sebelum memasukkan ulang Penjual pada tanggal yang sama.
+Jika transaksi lama salah, Operator menghapusnya melalui Koreksi Transaksi sebelum memasukkan ulang Penjual pada tanggal yang sama.
 
 ## 8. Form Iuran Mingguan
 
@@ -243,7 +240,9 @@ PDF kontrol mingguan menggunakan tanggal awal Sabtu dan memiliki kolom Sabtu, Mi
 
 Input Pengeluaran mencakup tanggal, kategori, nominal, keterangan opsional, dan foto bukti nota opsional.
 
-Foto menerima JPG/JPEG/PNG maksimal 10 MB sebelum kompresi dan ditargetkan menjadi JPG di bawah 500 KB. Bila penyimpanan database gagal setelah file dibuat, file baru dibersihkan.
+Foto menerima JPG/JPEG/PNG maksimal 10 MB sebelum kompresi dan ditargetkan menjadi JPG di bawah 500 KB. Upload baru disimpan di `writable/uploads/bukti_nota/`.
+
+DataTable Pengeluaran tidak membuka path file langsung. Tombol **Lihat** memakai route `pengeluaran/{id}/bukti` yang hanya dapat diakses Operator. File legacy di `uploads/bukti_nota/` tetap dapat dibaca aplikasi tetapi akses langsung browser diblokir.
 
 ## 10. Setoran ke Pimpinan
 
@@ -257,13 +256,15 @@ Operator mengisi tanggal form, periode awal, periode akhir, dan nominal untuk me
 
 Dilakukan setelah dana benar-benar diserahkan kepada pimpinan. Data meliputi tanggal form, periode, nominal, keterangan opsional, dan foto bukti wajib untuk record baru.
 
-Edit Setoran mempertahankan bukti lama bila tidak ada upload baru. Penghapusan Setoran membersihkan file bukti hanya setelah delete database berhasil.
+Foto bukti baru disimpan di `writable/uploads/bukti_setoran/`. Preview pada Edit dan tombol/thumbnail pada DataTable memakai route `setoran/{id}/bukti`, bukan URL file langsung.
+
+Edit Setoran mempertahankan bukti lama bila tidak ada upload baru. Penghapusan Setoran membersihkan file bukti setelah delete database berhasil.
 
 ## 11. Koreksi Transaksi
 
 Koreksi hanya untuk data yang benar-benar salah input dan menggunakan hard delete dengan konfirmasi.
 
-Tersedia tab Iuran, Pengeluaran, dan Setoran dengan filter periode. Penghapusan Pengeluaran/Setoran juga membersihkan file bukti terkait setelah operasi database berhasil.
+Tersedia tab Iuran, Pengeluaran, dan Setoran dengan filter periode. Penghapusan Pengeluaran/Setoran membersihkan file bukti baik path legacy maupun path privat setelah operasi database berhasil.
 
 Koreksi Iuran menampilkan Golongan dari snapshot historis transaksi. Untuk aturan unique Iuran, Koreksi Transaksi adalah mekanisme resmi bila Penjual harus diinput ulang pada tanggal yang sama.
 
@@ -290,7 +291,7 @@ Total seluruh Iuran - Total seluruh Pengeluaran - Total seluruh Setoran Resmi
 
 Tersedia Laporan Iuran, Pengeluaran, Setoran, dan Rekap Kas. Filter default tanggal 1 bulan berjalan sampai hari ini dan hanya menerima tanggal kalender valid.
 
-Laporan Iuran menampilkan dan memfilter Golongan berdasarkan snapshot transaksi, dengan fallback ke Golongan Penjual saat ini hanya untuk record legacy yang belum mempunyai snapshot. Dengan demikian perubahan Golongan Penjual tidak mengubah klasifikasi transaksi baru yang sudah tercatat.
+Laporan Iuran menampilkan dan memfilter Golongan berdasarkan snapshot transaksi, dengan fallback ke Golongan Penjual saat ini hanya untuk record legacy yang belum mempunyai snapshot.
 
 Rekap Kas menampilkan Saldo Awal, transaksi periode, dan Saldo Akhir kronologis. Iuran pada tanggal yang sama diagregasi menjadi satu baris `Total Iuran Harian (n transaksi)`.
 
@@ -352,9 +353,12 @@ assets/
 assets-app/qrcode-lib/
 uploads/
 ├── branding/
-├── bukti_nota/
-└── bukti_setoran/
+├── bukti_nota/          # legacy, HTTP direct diblokir
+└── bukti_setoran/       # legacy, HTTP direct diblokir
 writable/
+└── uploads/
+    ├── bukti_nota/      # bukti baru, privat
+    └── bukti_setoran/   # bukti baru, privat
 vendor/
 docs/
 index.php
@@ -362,7 +366,7 @@ index.php
 composer.json
 ```
 
-File upload dinamis harus dibackup bersama database.
+Database dan seluruh file upload adalah data operasional yang wajib dibackup.
 
 ## 19. Konvensi Pengembangan
 
@@ -385,21 +389,26 @@ Ketentuan deployment:
 - `CI_ENVIRONMENT = production`;
 - `app.baseURL` HTTPS;
 - secure cookie aktif;
-- `writable/` serta folder upload writable;
-- `.htaccess` root dan uploads ikut deployment;
+- `writable/` harus writable, termasuk `writable/uploads/`;
+- `.htaccess` root, `uploads/.htaccess`, `uploads/bukti_nota/.htaccess`, dan `uploads/bukti_setoran/.htaccess` wajib ikut deployment;
 - `vendor/` ikut bila Composer tidak tersedia di hosting;
 - `.env` tidak pernah masuk repository;
-- backup database + seluruh uploads sebelum update;
+- backup database + seluruh upload sebelum update;
 - jangan menjalankan seeder pada database existing;
 - perubahan schema diterapkan sebelum source baru digunakan.
 
-Untuk penerapan unique Iuran pada hosting tanpa terminal: jalankan query deteksi duplikasi terlebih dahulu. Hanya jika hasilnya 0 baris, jalankan `ALTER TABLE ... ADD UNIQUE KEY` sebagaimana Bab 5.10.
-
-Untuk snapshot Golongan, jalankan `docs/SQL_100012_GOLONGAN_SNAPSHOT_IURAN.sql` melalui phpMyAdmin **sebelum** source terbaru yang membaca kolom snapshot diaktifkan.
+Untuk snapshot Golongan, jalankan `docs/SQL_100012_GOLONGAN_SNAPSHOT_IURAN.sql` melalui phpMyAdmin sebelum source terbaru aktif.
 
 ## 21. Backup Operasional
 
-Backup minimal mencakup dump database, `uploads/branding/`, `uploads/bukti_nota/`, `uploads/bukti_setoran/`, dan salinan `.env` yang disimpan aman di luar repository/web root.
+Backup minimal mencakup:
+
+- dump database;
+- `uploads/branding/`;
+- file legacy `uploads/bukti_nota/` dan `uploads/bukti_setoran/` selama masih ada record yang menunjuk ke sana;
+- `writable/uploads/bukti_nota/`;
+- `writable/uploads/bukti_setoran/`;
+- salinan `.env` di lokasi aman di luar repository/web root.
 
 ## 22. Smoke Test Wajib
 
@@ -411,13 +420,15 @@ Setelah deployment, verifikasi:
 - CRUD/arsip master;
 - Input Iuran bulk;
 - ubah tanggal Input Iuran dan cek status **Tercatat**;
-- coba submit Penjual yang sudah tercatat dan pastikan ditolak;
-- Koreksi Iuran lalu pastikan Penjual dapat diinput ulang pada tanggal tersebut;
-- cek satu transaksi Iuran lama, ubah Golongan Penjual, lalu pastikan transaksi lama tetap menampilkan Golongan snapshot di Laporan Iuran/Koreksi;
-- pastikan transaksi Iuran baru menyimpan `id_golongan_snapshot`, `nama_golongan_snapshot`, dan `nominal_golongan_snapshot`;
-- Pengeluaran + bukti;
+- request duplikat ditolak;
+- Koreksi Iuran lalu input ulang pada tanggal yang sama;
+- snapshot Golongan transaksi baru terisi;
+- ubah Golongan Penjual dan pastikan transaksi lama tetap menampilkan Golongan historis;
+- Input Pengeluaran + bukti, lalu pastikan tombol Lihat bekerja saat Operator login;
+- akses URL langsung `/uploads/bukti_nota/...` menghasilkan 403;
+- Input/Edit Setoran Resmi + bukti melalui route privat;
+- akses URL langsung `/uploads/bukti_setoran/...` menghasilkan 403;
 - Form Iuran Mingguan;
-- cetak dan simpan Setoran Resmi;
 - Dashboard dan grafik;
 - filter Laporan/Rekap Kas/export Excel;
 - Kartu/QR/scanner;
@@ -425,11 +436,10 @@ Setelah deployment, verifikasi:
 
 ## 23. Perubahan yang Masih Membutuhkan Keputusan Bisnis
 
-Aturan **satu Penjual maksimal satu Iuran per tanggal** dan **snapshot Golongan historis Iuran** sudah diputuskan dan menjadi baseline aplikasi.
+Aturan **satu Penjual maksimal satu Iuran per tanggal**, **snapshot Golongan historis Iuran**, dan **akses privat bukti transaksi** sudah menjadi baseline aplikasi.
 
 Hal berikut masih membutuhkan keputusan eksplisit sebelum perubahan besar dilakukan:
 
 - apakah transaksi dengan tanggal masa depan harus ditolak;
 - apakah Setoran Resmi harus dibatasi agar tidak melebihi saldo kas;
-- apakah bukti transaksi harus dipindahkan ke storage privat;
 - apakah transaksi keuangan memerlukan audit trail perubahan/hapus.
