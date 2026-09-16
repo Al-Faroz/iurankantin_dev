@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\SetoranPimpinanModel;
 use App\Models\TransaksiIuranModel;
 use App\Models\TransaksiPengeluaranModel;
+use App\Services\BuktiTransaksiStorageService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 
 class KoreksiTransaksi extends BaseController
@@ -95,7 +96,7 @@ class KoreksiTransaksi extends BaseController
                 ->with('error', 'Transaksi pengeluaran gagal dihapus. Silakan coba kembali.');
         }
 
-        $this->hapusFileUpload((string) ($row['bukti_nota'] ?? ''), 'uploads/bukti_nota/');
+        (new BuktiTransaksiStorageService())->hapusNota($row['bukti_nota'] ?? null);
 
         return redirect()->to($this->returnUrl())->with('success', 'Transaksi pengeluaran yang salah berhasil dihapus permanen.');
     }
@@ -113,7 +114,7 @@ class KoreksiTransaksi extends BaseController
                 ->with('error', 'Transaksi setoran gagal dihapus. Silakan coba kembali.');
         }
 
-        $this->hapusFileUpload((string) ($row['bukti_setoran'] ?? ''), 'uploads/bukti_setoran/');
+        (new BuktiTransaksiStorageService())->hapusSetoran($row['bukti_setoran'] ?? null);
 
         return redirect()->to($this->returnUrl())->with('success', 'Transaksi setoran yang salah berhasil dihapus permanen.');
     }
@@ -160,17 +161,5 @@ class KoreksiTransaksi extends BaseController
         $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value, new \DateTimeZone('Asia/Jakarta'));
 
         return $date !== false && $date->format('Y-m-d') === $value;
-    }
-
-    private function hapusFileUpload(string $relativePath, string $allowedPrefix): void
-    {
-        if ($relativePath === '' || ! str_starts_with($relativePath, $allowedPrefix)) {
-            return;
-        }
-
-        $fullPath = ROOTPATH . $relativePath;
-        if (is_file($fullPath)) {
-            @unlink($fullPath);
-        }
     }
 }
