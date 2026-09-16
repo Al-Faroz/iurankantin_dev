@@ -117,8 +117,11 @@ Field utama:
 
 - `id_transaksi`;
 - `id_penjual`;
+- `id_golongan_snapshot` — ID Golongan saat transaksi dicatat;
+- `nama_golongan_snapshot` — nama Golongan saat transaksi dicatat;
+- `nominal_golongan_snapshot` — nominal default Golongan saat transaksi dicatat;
 - `tanggal`;
-- `nominal`;
+- `nominal` — nominal Iuran yang benar-benar dibayar;
 - `keterangan` nullable;
 - `id_operator`;
 - `created_at`.
@@ -130,6 +133,8 @@ Perlindungan dilakukan berlapis:
 1. halaman Input Iuran menandai Penjual yang sudah tercatat pada tanggal terpilih;
 2. service server menolak request duplikat;
 3. database menggunakan unique index `uniq_iuran_penjual_tanggal (id_penjual, tanggal)`.
+
+Setiap transaksi baru menyimpan snapshot Golongan agar histori Laporan Iuran tidak berubah ketika Golongan Penjual, nama Golongan, atau nominal default Golongan diubah kemudian. Snapshot tidak mengubah nominal transaksi aktual.
 
 Transaksi Iuran tidak memakai soft delete. Data salah dikoreksi melalui hard delete pada menu Koreksi Transaksi.
 
@@ -154,9 +159,12 @@ Migration aplikasi saat ini:
 - `100001` s.d. `100008` — tabel bisnis awal;
 - `100009` — `ci_sessions`;
 - `100010` — penambahan `alamat` pada `penjual`;
-- `100011` — unique index satu Iuran per Penjual per tanggal.
+- `100011` — unique index satu Iuran per Penjual per tanggal;
+- `100012` — snapshot Golongan pada `transaksi_iuran`.
 
 Migration `100011` bersifat aman terhadap index yang sudah dibuat manual: bila index sudah ada, migration tidak membuat ulang. Sebelum membuat index, migration memeriksa duplikasi historis dan menghentikan proses bila masih ditemukan data ganda.
+
+Migration `100012` bersifat idempotent terhadap kolom/index snapshot yang sudah dibuat manual. Data historis yang belum mempunyai snapshot di-*backfill* menggunakan kondisi Golongan Penjual saat migration/SQL dijalankan. Karena sistem sebelumnya tidak menyimpan histori perubahan Golongan, keadaan Golongan sebelum tanggal backfill tidak dapat direkonstruksi otomatis.
 
 Kolom `bukti_setoran` merupakan perubahan schema operasional yang diterapkan manual melalui SQL/phpMyAdmin pada hosting existing:
 
@@ -181,6 +189,17 @@ Jika query tersebut menghasilkan **0 baris**, unique index dapat diterapkan manu
 ALTER TABLE `transaksi_iuran`
 ADD UNIQUE KEY `uniq_iuran_penjual_tanggal` (`id_penjual`, `tanggal`);
 ```
+
+Untuk snapshot Golongan, gunakan SQL lengkap pada `docs/SQL_100012_GOLONGAN_SNAPSHOT_IURAN.sql`. Inti perubahan schema:
+
+```sql
+ALTER TABLE `transaksi_iuran`
+    ADD COLUMN IF NOT EXISTS `id_golongan_snapshot` INT(11) UNSIGNED NULL AFTER `id_penjual`,
+    ADD COLUMN IF NOT EXISTS `nama_golongan_snapshot` VARCHAR(100) NULL AFTER `id_golongan_snapshot`,
+    ADD COLUMN IF NOT EXISTS `nominal_golongan_snapshot` DECIMAL(12,2) NULL AFTER `nama_golongan_snapshot`;
+```
+
+SQL lengkap juga melakukan backfill data lama, membuat index `idx_iuran_golongan_snapshot`, dan menyediakan query verifikasi.
 
 Jangan menjalankan seeder pada database operasional existing untuk menerapkan perubahan schema.
 
@@ -208,6 +227,7 @@ Aturan proses:
 - minimal satu Penjual harus dipilih;
 - nominal terpilih harus lebih dari nol;
 - service server memeriksa duplikasi lagi sebelum insert;
+- saat insert, ID/nama/nominal default Golongan disalin ke field snapshot transaksi;
 - penyimpanan batch menggunakan database transaction;
 - unique index database menjadi perlindungan terakhir terhadap request bersamaan;
 - total Penjual terpilih dan nominal dihitung langsung di UI;
@@ -245,7 +265,7 @@ Koreksi hanya untuk data yang benar-benar salah input dan menggunakan hard delet
 
 Tersedia tab Iuran, Pengeluaran, dan Setoran dengan filter periode. Penghapusan Pengeluaran/Setoran juga membersihkan file bukti terkait setelah operasi database berhasil.
 
-Untuk aturan unique Iuran, Koreksi Transaksi adalah mekanisme resmi bila Penjual harus diinput ulang pada tanggal yang sama.
+Koreksi Iuran menampilkan Golongan dari snapshot historis transaksi. Untuk aturan unique Iuran, Koreksi Transaksi adalah mekanisme resmi bila Penjual harus diinput ulang pada tanggal yang sama.
 
 ## 12. Dashboard
 
@@ -269,6 +289,8 @@ Total seluruh Iuran - Total seluruh Pengeluaran - Total seluruh Setoran Resmi
 ## 13. Laporan dan Export Excel
 
 Tersedia Laporan Iuran, Pengeluaran, Setoran, dan Rekap Kas. Filter default tanggal 1 bulan berjalan sampai hari ini dan hanya menerima tanggal kalender valid.
+
+Laporan Iuran menampilkan dan memfilter Golongan berdasarkan snapshot transaksi, dengan fallback ke Golongan Penjual saat ini hanya untuk record legacy yang belum mempunyai snapshot. Dengan demikian perubahan Golongan Penjual tidak mengubah klasifikasi transaksi baru yang sudah tercatat.
 
 Rekap Kas menampilkan Saldo Awal, transaksi periode, dan Saldo Akhir kronologis. Iuran pada tanggal yang sama diagregasi menjadi satu baris `Total Iuran Harian (n transaksi)`.
 
@@ -373,6 +395,8 @@ Ketentuan deployment:
 
 Untuk penerapan unique Iuran pada hosting tanpa terminal: jalankan query deteksi duplikasi terlebih dahulu. Hanya jika hasilnya 0 baris, jalankan `ALTER TABLE ... ADD UNIQUE KEY` sebagaimana Bab 5.10.
 
+Untuk snapshot Golongan, jalankan `docs/SQL_100012_GOLONGAN_SNAPSHOT_IURAN.sql` melalui phpMyAdmin **sebelum** source terbaru yang membaca kolom snapshot diaktifkan.
+
 ## 21. Backup Operasional
 
 Backup minimal mencakup dump database, `uploads/branding/`, `uploads/bukti_nota/`, `uploads/bukti_setoran/`, dan salinan `.env` yang disimpan aman di luar repository/web root.
@@ -389,6 +413,8 @@ Setelah deployment, verifikasi:
 - ubah tanggal Input Iuran dan cek status **Tercatat**;
 - coba submit Penjual yang sudah tercatat dan pastikan ditolak;
 - Koreksi Iuran lalu pastikan Penjual dapat diinput ulang pada tanggal tersebut;
+- cek satu transaksi Iuran lama, ubah Golongan Penjual, lalu pastikan transaksi lama tetap menampilkan Golongan snapshot di Laporan Iuran/Koreksi;
+- pastikan transaksi Iuran baru menyimpan `id_golongan_snapshot`, `nama_golongan_snapshot`, dan `nominal_golongan_snapshot`;
 - Pengeluaran + bukti;
 - Form Iuran Mingguan;
 - cetak dan simpan Setoran Resmi;
@@ -399,12 +425,11 @@ Setelah deployment, verifikasi:
 
 ## 23. Perubahan yang Masih Membutuhkan Keputusan Bisnis
 
-Aturan **satu Penjual maksimal satu Iuran per tanggal sudah diputuskan dan menjadi baseline aplikasi**.
+Aturan **satu Penjual maksimal satu Iuran per tanggal** dan **snapshot Golongan historis Iuran** sudah diputuskan dan menjadi baseline aplikasi.
 
 Hal berikut masih membutuhkan keputusan eksplisit sebelum perubahan besar dilakukan:
 
 - apakah transaksi dengan tanggal masa depan harus ditolak;
 - apakah Setoran Resmi harus dibatasi agar tidak melebihi saldo kas;
-- apakah histori Iuran harus menyimpan snapshot Golongan Penjual;
 - apakah bukti transaksi harus dipindahkan ke storage privat;
 - apakah transaksi keuangan memerlukan audit trail perubahan/hapus.
