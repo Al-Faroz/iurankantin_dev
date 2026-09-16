@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\KategoriPengeluaranModel;
 use App\Models\TransaksiPengeluaranModel;
+use App\Services\AuditTransaksiService;
 use App\Services\BuktiNotaService;
 use App\Services\BuktiTransaksiStorageService;
 use CodeIgniter\Exceptions\PageNotFoundException;
@@ -41,9 +42,12 @@ class Pengeluaran extends BaseController
 
     public function create()
     {
+        $today = Time::now('Asia/Jakarta')->toDateString();
+
         return view('pengeluaran_form', [
             'title' => 'Input Pengeluaran',
-            'tanggalDefault' => Time::now('Asia/Jakarta')->toDateString(),
+            'tanggalDefault' => $today,
+            'tanggalMaks' => $today,
             'kategori' => $this->kategoriModel->orderBy('nama_kategori', 'ASC')->findAll(),
         ]);
     }
@@ -61,30 +65,37 @@ class Pengeluaran extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
+        $tanggal = (string) $this->request->getPost('tanggal');
+        if ($tanggal > Time::now('Asia/Jakarta')->toDateString()) {
+            return redirect()->back()->withInput()->with('error', 'Tanggal Pengeluaran tidak boleh melebihi hari ini.');
+        }
+
         $idKategori = (int) $this->request->getPost('id_kategori_keluar');
-        if ($this->kategoriModel->find($idKategori) === null) {
+        $kategori = $this->kategoriModel->find($idKategori);
+        if ($kategori === null) {
             return redirect()->back()->withInput()->with('error', 'Kategori pengeluaran tidak valid.');
         }
 
         $buktiPath = null;
         $file = $this->request->getFile('bukti_nota');
+        $payload = [
+            'tanggal' => $tanggal,
+            'id_kategori_keluar' => $idKategori,
+            'nominal' => (float) $this->request->getPost('nominal'),
+            'keterangan' => trim((string) $this->request->getPost('keterangan')) ?: null,
+            'bukti_nota' => null,
+            'id_operator' => (int) session()->get('id_user'),
+            'created_at' => date('Y-m-d H:i:s'),
+        ];
 
         try {
             if ($file !== null && $file->getError() !== UPLOAD_ERR_NO_FILE) {
                 $buktiPath = (new BuktiNotaService())->simpan($file);
+                $payload['bukti_nota'] = $buktiPath;
             }
 
-            $saved = $this->model->insert([
-                'tanggal' => (string) $this->request->getPost('tanggal'),
-                'id_kategori_keluar' => $idKategori,
-                'nominal' => (float) $this->request->getPost('nominal'),
-                'keterangan' => trim((string) $this->request->getPost('keterangan')) ?: null,
-                'bukti_nota' => $buktiPath,
-                'id_operator' => (int) session()->get('id_user'),
-                'created_at' => date('Y-m-d H:i:s'),
-            ]);
-
-            if ($saved === false) {
+            $idPengeluaran = $this->model->insert($payload, true);
+            if ($idPengeluaran === false) {
                 throw new RuntimeException('Pengeluaran gagal disimpan ke database. Silakan coba kembali.');
             }
         } catch (RuntimeException $e) {
@@ -94,6 +105,14 @@ class Pengeluaran extends BaseController
 
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
+
+        (new AuditTransaksiService())->catat('CREATE', 'pengeluaran', (int) $idPengeluaran, [
+            'tanggal' => $payload['tanggal'],
+            'kategori' => (string) ($kategori['nama_kategori'] ?? $idKategori),
+            'nominal' => $payload['nominal'],
+            'keterangan' => $payload['keterangan'],
+            'ada_bukti' => $buktiPath !== null,
+        ]);
 
         return redirect()->to($this->baseUrl . '/pengeluaran')->with('success', 'Pengeluaran berhasil disimpan.');
     }
