@@ -40,7 +40,7 @@ $query = http_build_query(array_filter($filter, static fn ($value): bool => $val
 <div class="card">
     <div class="card-header">
         <h5 class="mb-1">Buku Kas Gabungan</h5>
-        <p class="text-body-secondary mb-0">Iuran sebagai pemasukan; pengeluaran dan setoran pimpinan sebagai pengurang saldo.</p>
+        <p class="text-body-secondary mb-0">Iuran diringkas menjadi satu total per tanggal; pengeluaran dan setoran pimpinan tetap ditampilkan per transaksi.</p>
     </div>
     <div class="card-datatable table-responsive">
         <table class="table" id="table-rekap-kas">
