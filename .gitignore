@@ -1,4 +1,5 @@
 /vendor/
+/build/
 /writable/cache/*
 !/writable/cache/index.html
 /writable/logs/*
