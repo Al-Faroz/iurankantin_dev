@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use RuntimeException;
@@ -160,7 +161,16 @@ class LaporanService
 
         foreach ($rows as $rowIndex => $row) {
             foreach (array_values($row) as $columnIndex => $value) {
-                $sheet->setCellValue([$columnIndex + 1, $rowIndex + 2], $value);
+                $cell = [$columnIndex + 1, $rowIndex + 2];
+
+                // Data teks harus tetap menjadi teks: mencegah formula injection dari
+                // input pengguna sekaligus mempertahankan nomor HP/teks berawalan nol.
+                if (is_string($value)) {
+                    $sheet->setCellValueExplicit($cell, $value, DataType::TYPE_STRING);
+                    continue;
+                }
+
+                $sheet->setCellValue($cell, $value);
             }
         }
 
