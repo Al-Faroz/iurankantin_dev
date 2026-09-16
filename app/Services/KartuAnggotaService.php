@@ -68,6 +68,21 @@ class KartuAnggotaService
         return $row;
     }
 
+    /**
+     * Ambil kartu yang sudah siap tanpa melakukan mutasi database.
+     * Endpoint download GET harus idempotent dan tidak membuat kode baru diam-diam.
+     */
+    public function preparedDetail(int $idPenjual): array
+    {
+        $row = $this->detail($idPenjual);
+
+        if (empty($row['kode_kartu']) || empty($row['kode_verifikasi'])) {
+            throw new RuntimeException('Kode kartu belum dibuat. Klik tombol Generate terlebih dahulu.');
+        }
+
+        return $row;
+    }
+
     public function renderFront(array $penjual): string
     {
         $setting = $this->settingModel->getCurrent();
