@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\SetoranPimpinanModel;
 use App\Models\SettingModel;
 use App\Services\BuktiSetoranService;
+use App\Services\BuktiTransaksiStorageService;
 use App\Services\PdfService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\I18n\Time;
@@ -188,6 +189,21 @@ class Setoran extends BaseController
         return redirect()->to($this->baseUrl . '/setoran')->with('success', 'Setoran pimpinan berhasil diperbarui.');
     }
 
+    public function bukti(int $id)
+    {
+        $setoran = $this->model->find($id);
+        if ($setoran === null) {
+            throw PageNotFoundException::forPageNotFound('Setoran pimpinan tidak ditemukan.');
+        }
+
+        $fullPath = (new BuktiTransaksiStorageService())->resolveSetoran($setoran['bukti_setoran'] ?? null);
+        if ($fullPath === null) {
+            throw PageNotFoundException::forPageNotFound('Bukti setoran tidak ditemukan.');
+        }
+
+        return $this->imageResponse($fullPath);
+    }
+
     public function hapus(int $id)
     {
         $setoran = $this->model->find($id);
@@ -232,6 +248,24 @@ class Setoran extends BaseController
             ->setBody($binary);
     }
 
+    private function imageResponse(string $fullPath)
+    {
+        $content = file_get_contents($fullPath);
+        if ($content === false) {
+            throw PageNotFoundException::forPageNotFound('Bukti setoran tidak dapat dibaca.');
+        }
+
+        $mime = mime_content_type($fullPath) ?: 'image/jpeg';
+        $filename = basename($fullPath);
+
+        return $this->response
+            ->setHeader('Content-Type', $mime)
+            ->setHeader('Content-Disposition', 'inline; filename="' . $filename . '"')
+            ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->setHeader('X-Content-Type-Options', 'nosniff')
+            ->setBody($content);
+    }
+
     private function payload(): array
     {
         return [
@@ -261,13 +295,6 @@ class Setoran extends BaseController
 
     private function hapusBukti(string $relativePath): void
     {
-        if (! str_starts_with($relativePath, 'uploads/bukti_setoran/')) {
-            return;
-        }
-
-        $path = ROOTPATH . $relativePath;
-        if (is_file($path)) {
-            @unlink($path);
-        }
+        (new BuktiTransaksiStorageService())->hapusSetoran($relativePath);
     }
 }
