@@ -1,6 +1,6 @@
 # Checklist Deployment Shared Hosting
 
-Dokumen ini adalah checklist final deployment **Aplikasi Iuran Kantin MTsN 4 Jombang** setelah UAT lokal selesai.
+Dokumen ini adalah checklist deployment **Aplikasi Iuran Kantin MTsN 4 Jombang** untuk hosting yang dikelola terutama melalui File Manager dan phpMyAdmin.
 
 ## 1. Backup sebelum deployment
 
@@ -10,7 +10,7 @@ Simpan backup di lokasi di luar document root hosting:
 - folder `uploads/branding/`;
 - folder `uploads/bukti_nota/`;
 - folder `uploads/bukti_setoran/`;
-- file `.env` lokal hanya sebagai referensi konfigurasi, jangan dipublikasikan.
+- file `.env` production disimpan aman di luar repository.
 
 Jangan menjalankan seeder pada database operasional yang sudah berisi data.
 
@@ -36,29 +36,66 @@ post_max_size >= 16M
 max_execution_time >= 60
 ```
 
-Nilai dapat disesuaikan dengan kebijakan hosting dan jumlah data.
+## 3. Persiapan source untuk upload ZIP
 
-## 3. Install source dan dependency
+Jika hosting tidak memiliki Composer/SSH, jalankan di komputer lokal:
 
-Dari root aplikasi:
-
-```bash
+```powershell
+cd G:\xampp\htdocs\iuran_dev
+git pull origin main
 composer install --no-dev --optimize-autoloader --no-interaction
 php spark migrate:status
 php spark routes
 ```
 
-Jika ada migration yang benar-benar pending pada server baru, backup database terlebih dahulu lalu jalankan:
+ZIP deployment harus memuat minimal:
 
-```bash
-php spark migrate
+```text
+app/
+assets/
+assets-app/
+uploads/
+vendor/
+writable/
+.htaccess
+index.php
+composer.json
+composer.lock
 ```
 
-Jangan menjalankan migration secara membabi buta pada database lama tanpa melihat `migrate:status`.
+Pastikan file tersembunyi `.htaccess` root dan `uploads/.htaccess` benar-benar ikut ZIP. Jangan memasukkan `.env` lokal ke ZIP bila credential lokal berbeda dari production.
 
-## 4. `.env` production
+## 4. Schema database production
 
-Buat `.env` dari file contoh `env`. Minimum production:
+Database existing harus sudah memiliki seluruh migration sampai `100010` yang menambahkan `penjual.alamat`.
+
+Fitur foto bukti **Input Setoran Resmi** menggunakan kolom manual yang sengaja tidak dibuat sebagai migration hosting. Sebelum source yang memakai fitur tersebut aktif, cek lewat phpMyAdmin:
+
+```sql
+SHOW COLUMNS FROM `setoran_pimpinan` LIKE 'bukti_setoran';
+```
+
+Jika query tidak menghasilkan baris, jalankan:
+
+```sql
+ALTER TABLE `setoran_pimpinan`
+ADD COLUMN `bukti_setoran` VARCHAR(255) NULL
+AFTER `keterangan`;
+```
+
+Jangan import ulang database development ke production hanya untuk menambah satu kolom. Jangan menjalankan seeder pada database existing.
+
+Bila menggunakan dump database existing yang sudah memiliki tabel `ci_sessions`, disarankan membersihkan session lama setelah import:
+
+```sql
+TRUNCATE TABLE `ci_sessions`;
+```
+
+Perintah tersebut tidak menghapus akun User atau transaksi.
+
+## 5. `.env` production
+
+Buat `.env` pada root yang sama dengan `index.php`:
 
 ```dotenv
 CI_ENVIRONMENT = production
@@ -81,11 +118,13 @@ database.default.charset = utf8mb4
 database.default.DBCollat = utf8mb4_general_ci
 ```
 
-`app.baseURL` harus menggunakan domain/subfolder production yang sebenarnya dan diakhiri `/`.
+`app.baseURL` harus menggunakan domain/subfolder production sebenarnya dan diakhiri `/`.
 
-Jika HTTPS diterminasi oleh reverse proxy/CDN dan aplikasi mengalami redirect loop, konfigurasi proxy tepercaya melalui `Config\App::$proxyIPs` berdasarkan dokumentasi/provider hosting. Jangan menonaktifkan HTTPS hanya untuk menghilangkan redirect loop.
+Jika provider memberi hostname database selain `localhost`, gunakan hostname dari panel hosting.
 
-## 5. Permission
+Jika HTTPS diterminasi oleh reverse proxy/CDN dan aplikasi mengalami redirect loop, konfigurasi proxy tepercaya melalui `Config\App::$proxyIPs` berdasarkan dokumentasi provider. Jangan menonaktifkan HTTPS atau secure cookie hanya untuk menghilangkan redirect loop.
+
+## 6. Permission
 
 PHP/web server harus dapat menulis ke:
 
@@ -96,13 +135,13 @@ uploads/bukti_nota/
 uploads/bukti_setoran/
 ```
 
-Gunakan permission paling minimum yang bekerja pada hosting (umumnya folder `755` atau `775` tergantung owner/group). Hindari `777` kecuali benar-benar diwajibkan provider dan tidak ada alternatif.
+Gunakan permission minimum yang bekerja pada hosting, umumnya `755` atau `775` tergantung owner/group. Hindari `777` bila tidak benar-benar diwajibkan provider.
 
-## 6. Apache / document root
+## 7. Apache / document root
 
-Project ini sengaja memakai struktur di mana front controller `index.php` berada di root project. Pastikan `.htaccess` aktif dan `mod_rewrite`/rewrite provider bekerja.
+Extract ZIP langsung ke document root subdomain sehingga `index.php` berada di document root, bukan di folder ganda seperti `public_html/iuran_dev/iuran_dev/index.php`.
 
-Sesudah deploy, URL berikut **harus ditolak** (403/404, bukan menampilkan isi file):
+Project memakai `.htaccess` untuk rewrite dan proteksi source. Sesudah deploy, URL berikut **harus ditolak** dengan 403/404:
 
 ```text
 /app/
@@ -120,7 +159,7 @@ Sesudah deploy, URL berikut **harus ditolak** (403/404, bukan menampilkan isi fi
 /spark
 ```
 
-Folder publik yang memang harus bisa dilayani:
+Folder publik yang memang harus dapat dilayani:
 
 ```text
 /assets/
@@ -128,9 +167,11 @@ Folder publik yang memang harus bisa dilayani:
 /uploads/
 ```
 
-`uploads/.htaccess` harus ikut terdeploy agar file script/executable tidak dapat dijalankan dari folder upload.
+`uploads/.htaccess` wajib ikut terdeploy agar file script/executable tidak dapat dijalankan dari folder upload.
 
-## 7. HTTPS dan QR scanner
+Jika server menghasilkan 500 segera setelah deploy, cek error log hosting. Beberapa provider membatasi directive `Options`; sesuaikan hanya berdasarkan kebutuhan provider tanpa menghapus proteksi file sensitif.
+
+## 8. HTTPS dan QR scanner
 
 HTTPS wajib pada production karena kamera browser memakai secure context.
 
@@ -139,28 +180,34 @@ Uji pada Chrome Android/Chromium:
 - izin kamera dapat diberikan;
 - scan QR kartu membuka URL domain production;
 - QR publik hanya menampilkan Nama, Golongan, Status;
-- Operator yang login diarahkan ke detail internal Penjual;
-- QR lama tidak valid setelah regenerate kode verifikasi.
+- Operator yang login diarahkan ke Detail Penjual internal;
+- QR lama tidak valid setelah regenerate kode verifikasi;
+- scan dari file gambar juga bekerja.
 
-## 8. Smoke test setelah go-live
+## 9. Smoke test setelah go-live
 
 Lakukan dari browser desktop dan mobile:
 
 ```text
 [ ] Login Operator
 [ ] Login Pimpinan
+[ ] Nonaktifkan akun uji dan pastikan session kehilangan akses pada request berikutnya
 [ ] Logout
 [ ] Sidebar desktop collapse/expand dan state tersimpan setelah reload
 [ ] Menu mobile overlay dapat buka/tutup
 [ ] Pagination, search, responsive table
 [ ] Input Iuran bulk
-[ ] Pengeluaran + upload nota
-[ ] Cetak form iuran mingguan
-[ ] Download form Setoran 2 copy dalam 1 A4
-[ ] Input/Edit/Delete/Cetak Ulang Setoran + upload/lihat bukti foto
+[ ] Pengeluaran + upload/kompres nota
+[ ] Cetak Form Iuran Mingguan
+[ ] Download Form Setoran dua copy dalam satu A4
+[ ] Input Setoran Resmi + upload/kompres bukti
+[ ] Edit Setoran tanpa mengganti bukti
+[ ] Edit Setoran dengan bukti baru
+[ ] Koreksi/hapus Setoran dan pastikan bukti terkait ikut bersih
 [ ] Laporan Iuran/Pengeluaran/Setoran
-[ ] Rekap Kas dan saldo berjalan
-[ ] Export Excel sesuai filter dan periode pada nama file
+[ ] Rekap Kas: Iuran satu total per tanggal
+[ ] Export Excel sesuai filter dan filename membawa periode
+[ ] Dashboard ringkasan bulan berjalan + tiga grafik
 [ ] Upload logo/background kartu
 [ ] Favicon mengikuti logo
 [ ] Generate/download kartu JPG/ZIP
@@ -168,7 +215,7 @@ Lakukan dari browser desktop dan mobile:
 [ ] Verifikasi role Pimpinan tidak memiliki aksi tulis
 ```
 
-## 9. Backup operasional
+## 10. Backup operasional
 
 Setelah production aktif, backup terjadwal minimal harus mencakup:
 
@@ -179,6 +226,20 @@ Setelah production aktif, backup terjadwal minimal harus mencakup:
 
 Kode aplikasi dapat dipulihkan dari Git, tetapi database dan file upload adalah data operasional yang tidak ada di repository.
 
-## 10. Setelah deployment
+## 11. Diagnostik cepat
 
-Jangan mengaktifkan `development` di server production. Jika terjadi error, lihat file log pada `writable/logs/` dan jangan menampilkan debug detail kepada pengguna.
+Jika aplikasi 500 atau tidak berjalan setelah upload, cek secara berurutan:
+
+1. versi PHP dan extension wajib;
+2. keberadaan `vendor/`;
+3. sintaks dan credential `.env`;
+4. permission `writable/` dan folder upload;
+5. keberadaan kolom database yang dibutuhkan;
+6. `.htaccess` dan dukungan rewrite;
+7. error log pada `writable/logs/` atau panel hosting.
+
+Jika CSS/JS 404, biasanya document root/extract ZIP atau `app.baseURL` tidak sesuai. Jika homepage bekerja tetapi route lain 404, periksa rewrite `.htaccess`.
+
+## 12. Setelah deployment
+
+Jangan mengaktifkan `development` pada production. Gunakan log server/writable untuk diagnosis dan jangan menampilkan detail exception/database kepada pengguna umum.
