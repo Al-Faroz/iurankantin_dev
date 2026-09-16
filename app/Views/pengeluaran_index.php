@@ -37,7 +37,7 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
                     <td><?= esc($row['keterangan'] ?: '-') ?></td>
                     <td>
                         <?php if ($row['bukti_nota']): ?>
-                            <a href="<?= esc($baseUrl . '/' . ltrim($row['bukti_nota'], '/')) ?>" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">Lihat</a>
+                            <a href="<?= esc($baseUrl) ?>/pengeluaran/<?= (int) $row['id_pengeluaran'] ?>/bukti" target="_blank" rel="noopener" class="btn btn-sm btn-outline-secondary">Lihat</a>
                         <?php else: ?>
                             <span class="text-body-secondary">-</span>
                         <?php endif; ?>
