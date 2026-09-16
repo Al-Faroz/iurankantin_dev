@@ -38,10 +38,14 @@ class GolonganPenjual extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $this->model->insert([
+        $saved = $this->model->insert([
             'nama_golongan' => trim((string) $this->request->getPost('nama_golongan')),
             'nominal_iuran' => (float) $this->request->getPost('nominal_iuran'),
         ]);
+
+        if ($saved === false) {
+            return redirect()->back()->withInput()->with('error', 'Golongan gagal disimpan. Silakan coba kembali.');
+        }
 
         return redirect()->to($this->baseUrl . '/golongan')->with('success', 'Golongan berhasil ditambahkan.');
     }
@@ -69,10 +73,14 @@ class GolonganPenjual extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $this->model->update($id, [
+        $saved = $this->model->update($id, [
             'nama_golongan' => trim((string) $this->request->getPost('nama_golongan')),
             'nominal_iuran' => (float) $this->request->getPost('nominal_iuran'),
         ]);
+
+        if ($saved === false) {
+            return redirect()->back()->withInput()->with('error', 'Golongan gagal diperbarui. Silakan coba kembali.');
+        }
 
         return redirect()->to($this->baseUrl . '/golongan')->with('success', 'Golongan berhasil diperbarui.');
     }
@@ -94,9 +102,14 @@ class GolonganPenjual extends BaseController
         }
 
         $now = date('Y-m-d H:i:s');
-        db_connect()->table('golongan_penjual')
+        $saved = db_connect()->table('golongan_penjual')
             ->where('id_golongan', $id)
             ->update(['deleted_at' => $now, 'updated_at' => $now]);
+
+        if ($saved === false) {
+            return redirect()->to($this->baseUrl . '/golongan')
+                ->with('error', 'Golongan gagal diarsipkan. Silakan coba kembali.');
+        }
 
         return redirect()->to($this->baseUrl . '/golongan')->with('success', 'Golongan berhasil diarsipkan dari master data.');
     }
