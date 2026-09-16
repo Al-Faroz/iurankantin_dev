@@ -5,6 +5,8 @@ namespace App\Controllers;
 use App\Models\KategoriPengeluaranModel;
 use App\Models\TransaksiPengeluaranModel;
 use App\Services\BuktiNotaService;
+use App\Services\BuktiTransaksiStorageService;
+use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\I18n\Time;
 use RuntimeException;
 
@@ -86,16 +88,46 @@ class Pengeluaran extends BaseController
                 throw new RuntimeException('Pengeluaran gagal disimpan ke database. Silakan coba kembali.');
             }
         } catch (RuntimeException $e) {
-            if ($buktiPath !== null && str_starts_with($buktiPath, 'uploads/bukti_nota/')) {
-                $fullPath = ROOTPATH . $buktiPath;
-                if (is_file($fullPath)) {
-                    @unlink($fullPath);
-                }
+            if ($buktiPath !== null) {
+                (new BuktiTransaksiStorageService())->hapusNota($buktiPath);
             }
 
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
 
         return redirect()->to($this->baseUrl . '/pengeluaran')->with('success', 'Pengeluaran berhasil disimpan.');
+    }
+
+    public function bukti(int $id)
+    {
+        $row = $this->model->find($id);
+        if ($row === null) {
+            throw PageNotFoundException::forPageNotFound('Transaksi pengeluaran tidak ditemukan.');
+        }
+
+        $fullPath = (new BuktiTransaksiStorageService())->resolveNota($row['bukti_nota'] ?? null);
+        if ($fullPath === null) {
+            throw PageNotFoundException::forPageNotFound('Bukti nota tidak ditemukan.');
+        }
+
+        return $this->imageResponse($fullPath);
+    }
+
+    private function imageResponse(string $fullPath)
+    {
+        $content = file_get_contents($fullPath);
+        if ($content === false) {
+            throw PageNotFoundException::forPageNotFound('Bukti nota tidak dapat dibaca.');
+        }
+
+        $mime = mime_content_type($fullPath) ?: 'image/jpeg';
+        $filename = basename($fullPath);
+
+        return $this->response
+            ->setHeader('Content-Type', $mime)
+            ->setHeader('Content-Disposition', 'inline; filename="' . $filename . '"')
+            ->setHeader('Cache-Control', 'private, no-store, max-age=0')
+            ->setHeader('X-Content-Type-Options', 'nosniff')
+            ->setBody($content);
     }
 }
