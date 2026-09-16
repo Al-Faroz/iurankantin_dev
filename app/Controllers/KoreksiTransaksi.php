@@ -22,14 +22,20 @@ class KoreksiTransaksi extends BaseController
         $filter = $this->filterPeriode();
 
         $iuran = $db->table('transaksi_iuran')
-            ->select('transaksi_iuran.*, penjual.nama_penjual, penjual.lokasi_lapak, golongan_penjual.nama_golongan, golongan_penjual.nominal_iuran, users.nama AS nama_operator')
+            ->select(
+                'transaksi_iuran.*, penjual.nama_penjual, penjual.lokasi_lapak, '
+                . 'COALESCE(transaksi_iuran.nama_golongan_snapshot, golongan_penjual.nama_golongan) AS nama_golongan, '
+                . 'COALESCE(transaksi_iuran.nominal_golongan_snapshot, golongan_penjual.nominal_iuran) AS nominal_iuran, '
+                . 'users.nama AS nama_operator',
+                false
+            )
             ->join('penjual', 'penjual.id_penjual = transaksi_iuran.id_penjual')
             ->join('golongan_penjual', 'golongan_penjual.id_golongan = penjual.id_golongan', 'left')
             ->join('users', 'users.id_user = transaksi_iuran.id_operator')
             ->where('transaksi_iuran.tanggal >=', $filter['tanggal_awal'])
             ->where('transaksi_iuran.tanggal <=', $filter['tanggal_akhir'])
             ->orderBy('transaksi_iuran.tanggal', 'DESC')
-            ->orderBy('golongan_penjual.nominal_iuran', 'DESC')
+            ->orderBy('nominal_iuran', 'DESC')
             ->orderBy('penjual.nama_penjual', 'ASC')
             ->get()->getResultArray();
 
