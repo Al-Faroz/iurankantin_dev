@@ -70,8 +70,8 @@ $routes->group('', ['filter' => 'operator'], static function (RouteCollection $r
     $routes->post('kartu/(:num)/regenerate', 'KartuAnggota::regenerate/$1');
     $routes->get('kartu/(:num)/depan.jpg', 'KartuAnggota::downloadFront/$1');
     $routes->get('kartu/(:num)/lengkap.zip', 'KartuAnggota::downloadComplete/$1');
-    $routes->get('kartu/download/semua-depan.zip', 'KartuAnggota::downloadAllFront');
-    $routes->get('kartu/download/semua-lengkap.zip', 'KartuAnggota::downloadAllComplete');
+    $routes->post('kartu/download/semua-depan.zip', 'KartuAnggota::downloadAllFront');
+    $routes->post('kartu/download/semua-lengkap.zip', 'KartuAnggota::downloadAllComplete');
 
     $routes->get('setting', 'Setting::index');
     $routes->post('setting/update', 'Setting::update');
