@@ -7,6 +7,10 @@ Options -Indexes
 <IfModule mod_rewrite.c>
     RewriteEngine On
 
+    # Bukti transaksi lama mungkin masih berada di uploads/. Akses HTTP langsung
+    # diblokir; file hanya disajikan lewat route Operator terautentikasi.
+    RewriteRule ^uploads/(?:bukti_nota|bukti_setoran)(?:/|$) - [F,L,NC]
+
     # Framework/application source, runtime, development, and project tooling
     # must never be served directly from the web root.
     RewriteRule ^(?:app|vendor|writable|tests|docs|scripts|\.github|\.git)(?:/|$) - [F,L,NC]
