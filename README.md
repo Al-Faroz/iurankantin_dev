@@ -4,15 +4,11 @@ Aplikasi CodeIgniter 4 untuk pencatatan **iuran penjual/pedagang kantin kepada m
 
 > Aplikasi ini bukan aplikasi iuran siswa dan bukan POS/kasir.
 
-Dokumen acuan utama:
+Dokumen utama:
 
 ```text
 docs/DOKUMEN_ACUAN_Iuran_Kantin_MTsN4.md
-```
-
-Checklist deployment shared hosting:
-
-```text
+docs/AUDIT_TEKNIS_APLIKASI.md
 docs/DEPLOYMENT_SHARED_HOSTING.md
 ```
 
@@ -22,10 +18,8 @@ docs/DEPLOYMENT_SHARED_HOSTING.md
 - CodeIgniter 4
 - MySQL/MariaDB
 - Sneat Bootstrap 5
-- jQuery
-- DataTables + Responsive
-- SweetAlert2
-- ApexCharts
+- jQuery + DataTables Responsive
+- SweetAlert2 + ApexCharts
 - Dompdf
 - PhpSpreadsheet
 - Intervention Image + GD
@@ -36,9 +30,9 @@ Seluruh asset runtime disediakan lokal tanpa CDN.
 
 ## Struktur deployment
 
-Front controller `index.php` berada di root project untuk kompatibilitas shared hosting. `.htaccess` root memblokir akses langsung ke source/configuration seperti `app/`, `vendor/`, `writable/`, `tests/`, `docs/`, `.env`, Composer files, dan `spark`.
+Front controller `index.php` berada di root project untuk shared hosting. File `spark` juga sudah disesuaikan dengan layout root tersebut sehingga perintah CLI lokal tidak lagi mengacu ke folder `public/` yang tidak ada.
 
-Asset publik berada di `assets/`, `assets-app/`, dan `uploads/`. Folder `uploads/` memiliki `.htaccess` tersendiri untuk menonaktifkan directory listing dan memblokir eksekusi file script umum.
+`.htaccess` root memblokir akses langsung ke source/configuration sensitif. Bukti Nota dan Setoran baru disimpan di `writable/uploads/...` dan hanya ditampilkan melalui route Operator terautentikasi. File bukti lama yang masih berada di `uploads/bukti_nota/` atau `uploads/bukti_setoran/` tetap kompatibel, tetapi akses HTTP langsung ke folder tersebut diblokir.
 
 ## Requirement PHP
 
@@ -53,7 +47,7 @@ gd
 zip
 ```
 
-`gd` diperlukan untuk kompresi bukti dan render kartu. `zip` diperlukan untuk download kartu lengkap/bulk dan PhpSpreadsheet.
+Untuk menjalankan seluruh automated test lokal, aktifkan juga `sqlite3`.
 
 ## Update lokal
 
@@ -62,14 +56,16 @@ cd G:\xampp\htdocs\iuran_dev
 git pull origin main
 composer install
 php spark migrate:status
+php spark migrate
 php spark routes
+vendor\bin\phpunit -c phpunit.dist.xml
 ```
 
 Jangan menjalankan seeder pada database development/production existing yang sudah berisi data operasional.
 
-## Schema database existing
+## Migration
 
-Migration aplikasi sampai saat ini:
+Migration aplikasi saat ini:
 
 ```text
 2026-09-11-100001_CreateGolonganPenjualTable
@@ -82,118 +78,118 @@ Migration aplikasi sampai saat ini:
 2026-09-11-100008_CreateSetoranPimpinanTable
 2026-09-13-100009_CreateCiSessionsTable
 2026-09-16-100010_AddAlamatToPenjualTable
+2026-09-16-100011_AddUniqueIuranPerPenjualTanggal
+2026-09-16-100012_AddGolonganSnapshotToTransaksiIuran
+2026-09-16-100013_AddBuktiSetoranToSetoranPimpinan
 ```
 
-Selain migration tersebut, fitur bukti foto Setoran Resmi memakai kolom yang diterapkan manual melalui phpMyAdmin sesuai kebijakan hosting:
+Migration `100011`–`100013` dibuat agar aman terhadap schema yang sebelumnya sudah diterapkan manual pada hosting. Untuk production tanpa terminal, gunakan SQL phpMyAdmin sesuai `docs/DEPLOYMENT_SHARED_HOSTING.md`.
 
-```sql
-ALTER TABLE `setoran_pimpinan`
-ADD COLUMN `bukti_setoran` VARCHAR(255) NULL
-AFTER `keterangan`;
-```
+SQL snapshot Golongan lengkap tersedia di:
 
-Jalankan SQL tersebut **hanya jika kolom belum ada**. Cek terlebih dahulu:
-
-```sql
-SHOW COLUMNS FROM `setoran_pimpinan` LIKE 'bukti_setoran';
+```text
+docs/SQL_100012_GOLONGAN_SNAPSHOT_IURAN.sql
 ```
 
 ## Fresh install
-
-Untuk database kosong:
 
 ```powershell
 composer install
 php spark migrate
 ```
 
-Setelah migration, tambahkan kolom `bukti_setoran` menggunakan SQL manual di atas. Kemudian, bila memang membuat instalasi baru, isi password awal seeder melalui `.env`:
+Isi password awal seeder melalui `.env`:
 
 ```dotenv
 seed.operatorPassword = "GANTI_DENGAN_PASSWORD_OPERATOR"
 seed.pimpinanPassword = "GANTI_DENGAN_PASSWORD_PIMPINAN"
 ```
 
-Lalu jalankan satu kali:
+Kemudian jalankan satu kali pada database kosong:
 
 ```powershell
 php spark db:seed IuranKantinSeeder
 ```
 
-Seeder fresh-install tidak boleh dijalankan pada database existing.
+Seeder **tidak boleh** dijalankan pada database existing.
 
-## `.env` lokal
+## Aturan Iuran
 
-Contoh development:
+Input Iuran adalah bulk input seluruh Penjual aktif. Penjual yang membayar dicentang dan nominal diprefill dari Golongan tetapi dapat dioverride.
 
-```dotenv
-CI_ENVIRONMENT = development
+Aturan bisnis penting:
 
-app.baseURL = 'http://localhost/iuran_dev/'
+- satu Penjual maksimal satu transaksi Iuran pada tanggal yang sama;
+- UI menandai transaksi yang sudah ada sebagai **Tercatat**;
+- service server menolak duplikasi;
+- database dilindungi unique index `(id_penjual, tanggal)`;
+- transaksi menyimpan snapshot ID/nama/nominal default Golongan agar histori tidak berubah saat master Golongan/Penjual berubah.
 
-database.default.hostname = localhost
-database.default.database = iuran_dev
-database.default.username = root
-database.default.password =
-database.default.DBDriver = MySQLi
+## Pengeluaran dan Setoran
+
+Pengeluaran dapat memiliki bukti nota opsional. Setoran Resmi baru wajib memiliki bukti foto. JPG/JPEG/PNG maksimal 10 MB dikompresi menjadi JPG dengan target di bawah 500 KB.
+
+Upload bukti baru disimpan privat:
+
+```text
+writable/uploads/bukti_nota/
+writable/uploads/bukti_setoran/
 ```
 
-`.env` tidak boleh di-commit.
+Bukti hanya dapat dilihat melalui route Operator. Bukti tidak ditambahkan ke laporan/export.
 
-## Alur transaksi
+Setoran Pimpinan tetap dua tahap: **Cetak Form Setoran** tidak menulis database; **Input Setoran Resmi** baru mencatat transaksi dan mengurangi saldo.
 
-**Iuran** menggunakan input bulk seluruh Penjual aktif. Penjual yang membayar dicentang, nominal diprefill dari Golongan dan dapat dioverride.
-
-**Pengeluaran** dapat dilengkapi bukti nota opsional. JPG/JPEG/PNG maksimal 10 MB sebelum kompresi dikonversi menjadi JPG dengan target di bawah 500 KB.
-
-**Setoran Pimpinan** terdiri dari dua tahap: Cetak Form Setoran tidak memasukkan data ke database; Input Setoran Resmi dilakukan setelah dana benar-benar diserahkan dan baru mengurangi saldo. Setoran Resmi baru wajib memiliki foto bukti yang juga dikompresi menjadi JPG di bawah 500 KB.
-
-## Dashboard
+## Dashboard dan laporan
 
 Dashboard menampilkan ringkasan bulan berjalan, saldo kas keseluruhan, Aksi Cepat Operator, serta tiga grafik:
 
-- iuran harian bulan berjalan;
-- iuran enam bulan terakhir;
-- pengeluaran enam bulan terakhir.
+- Iuran harian bulan berjalan;
+- Iuran enam bulan terakhir;
+- Pengeluaran enam bulan terakhir.
 
-## Laporan
-
-Tersedia Laporan Iuran, Pengeluaran, Setoran, dan Rekap Kas. Rekap Kas menggabungkan seluruh Iuran pada tanggal yang sama menjadi satu total harian, sementara Pengeluaran dan Setoran tetap per transaksi.
-
-Filename export Excel laporan membawa periode filter. Export Penjual tidak memakai periode karena merupakan master data.
+Laporan tersedia untuk Iuran, Pengeluaran, Setoran, dan Rekap Kas. Rekap Kas menggabungkan Iuran menjadi satu total per tanggal; Pengeluaran dan Setoran tetap per transaksi. Export Excel mengikuti filter, filename membawa periode, dan data string ditulis literal untuk mencegah formula injection.
 
 ## Kartu dan QR
 
-Canvas Kartu Anggota berukuran `1011 x 638 px`. Kartu depan berisi nama, golongan, lokasi/lapak, No. HP, tanggal bergabung, alamat, QR, dan kode kartu. Background depan/belakang diupload dari Setting.
+Canvas kartu `1011 x 638 px`, tanpa foto. Kartu depan berisi Nama, Golongan, Lokasi/Lapak, No. HP, Tanggal Bergabung, Alamat, QR, dan Kode Kartu.
 
-QR publik hanya menampilkan Nama, Golongan, dan Status. Operator yang sudah login diarahkan ke Detail Penjual. Scanner browser memakai jsQR lokal dan membutuhkan HTTPS pada production untuk akses kamera.
+Generate/regenerate kode adalah aksi POST. Download kartu satuan via GET tidak lagi membuat state baru. Download massal memakai POST karena dapat membuat kode untuk Penjual aktif yang belum memilikinya.
 
-## Upload dan backup
+QR publik hanya menampilkan Nama, Golongan, dan Status. Operator yang sudah login diarahkan ke Detail Penjual. Scanner memakai jsQR lokal dan membutuhkan HTTPS di production.
 
-Data upload dinamis:
+## Branding
+
+Upload logo/background menerima JPG/JPEG/PNG maksimal 5 MB. Selain ukuran file, aplikasi membatasi resolusi maksimal **6000 px per sisi dan 24 megapiksel** untuk menghindari penggunaan memori berlebihan saat render.
+
+## Backup
+
+Backup operasional minimal mencakup:
 
 ```text
+database
 uploads/branding/
-uploads/bukti_nota/
-uploads/bukti_setoran/
+uploads/bukti_nota/          # legacy bila masih direferensikan
+uploads/bukti_setoran/       # legacy bila masih direferensikan
+writable/uploads/bukti_nota/
+writable/uploads/bukti_setoran/
 ```
-
-Ketiga folder tersebut dan database wajib masuk backup operasional. Folder harus writable oleh PHP di hosting.
 
 ## Production
 
-Gunakan HTTPS dan `CI_ENVIRONMENT = production`. Atur `app.baseURL`, database, secure cookie, dan trusted proxy sesuai hosting. Bila hosting tidak menyediakan Composer/SSH, jalankan `composer install --no-dev --optimize-autoloader` di lokal lalu sertakan `vendor/` dalam ZIP deployment.
+Gunakan HTTPS dan `CI_ENVIRONMENT = production`. Atur `app.baseURL`, database, secure cookie, permission `writable/`, dan trusted proxy sesuai hosting. Bila hosting tidak menyediakan Composer, sertakan `vendor/` hasil `composer install --no-dev --optimize-autoloader` dari lokal.
 
-Jangan menyimpan credential production di repository.
+Untuk update schema production tanpa terminal, **jalankan SQL yang diperlukan melalui phpMyAdmin sebelum source baru yang bergantung pada field tersebut diaktifkan**. Jangan reset database atau menjalankan seeder.
 
 ## CI
 
-GitHub Actions saat ini memeriksa:
+GitHub Actions memeriksa:
 
-- validitas Composer;
-- instalasi dependency;
-- syntax PHP seluruh `app/`;
+- validitas dan instalasi dependency Composer;
+- `composer audit --locked`;
+- syntax PHP pada `app/` dan `tests/`;
 - syntax JavaScript utama;
-- kompilasi route.
+- kompilasi route;
+- PHPUnit menggunakan database test terisolasi/SQLite.
 
-Audit teknis dan rekomendasi pengembangan dicatat terpisah agar Dokumen Acuan tetap menjadi baseline operasional yang bersih.
+Regression test saat ini mencakup keamanan storage bukti transaksi serta export Excel formula-safe, selain test framework yang sudah ada.
