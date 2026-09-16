@@ -1,13 +1,19 @@
 # Aplikasi Iuran Kantin MTsN 4 Jombang
 
-Aplikasi CodeIgniter 4 untuk pencatatan iuran **penjual/pedagang kantin kepada madrasah**, pengeluaran kas, setoran ke pimpinan, laporan, serta kartu anggota kantin dengan QR.
+Aplikasi CodeIgniter 4 untuk pencatatan **iuran penjual/pedagang kantin kepada madrasah**, pengeluaran operasional, setoran resmi ke pimpinan, laporan kas, serta Kartu Anggota Kantin dengan QR.
 
-> Aplikasi ini bukan aplikasi iuran siswa dan bukan aplikasi POS/kasir.
+> Aplikasi ini bukan aplikasi iuran siswa dan bukan POS/kasir.
 
-Dokumen acuan utama pengembangan ada di:
+Dokumen acuan utama:
 
 ```text
 docs/DOKUMEN_ACUAN_Iuran_Kantin_MTsN4.md
+```
+
+Checklist deployment shared hosting:
+
+```text
+docs/DEPLOYMENT_SHARED_HOSTING.md
 ```
 
 ## Stack
@@ -24,27 +30,19 @@ docs/DOKUMEN_ACUAN_Iuran_Kantin_MTsN4.md
 - PhpSpreadsheet
 - Intervention Image + GD
 - Endroid QR Code
-- jsQR lokal untuk scanner browser
+- jsQR lokal
 
-Seluruh asset aplikasi harus tersedia **lokal**, tanpa CDN saat runtime.
+Seluruh asset runtime disediakan lokal tanpa CDN.
 
 ## Struktur deployment
 
-Project mengikuti skema shared-hosting pada dokumen acuan: isi folder `public/` CodeIgniter telah dipindahkan ke root project. Karena itu `.htaccess` root memblokir akses web langsung ke source/configuration seperti:
+Front controller `index.php` berada di root project untuk kompatibilitas shared hosting. `.htaccess` root memblokir akses langsung ke source/configuration seperti `app/`, `vendor/`, `writable/`, `tests/`, `docs/`, `.env`, Composer files, dan `spark`.
 
-- `app/`
-- `vendor/`
-- `writable/`
-- `tests/`
-- `.env`
-- `composer.json` / `composer.lock`
-- `spark`
-
-Asset publik tetap berada di `assets/`, `assets-app/`, dan file upload publik yang memang dibutuhkan berada di `uploads/`.
+Asset publik berada di `assets/`, `assets-app/`, dan `uploads/`. Folder `uploads/` memiliki `.htaccess` tersendiri untuk menonaktifkan directory listing dan memblokir eksekusi file script umum.
 
 ## Requirement PHP
 
-Aktifkan minimal extension berikut:
+Aktifkan minimal:
 
 ```text
 intl
@@ -55,18 +53,23 @@ gd
 zip
 ```
 
-`zip` dibutuhkan untuk download kartu anggota lengkap/bulk. `gd` dibutuhkan untuk kompresi bukti nota, render kartu, dan QR PNG.
+`gd` diperlukan untuk kompresi bukti dan render kartu. `zip` diperlukan untuk download kartu lengkap/bulk dan PhpSpreadsheet.
 
-## Setup lokal — database existing
-
-Untuk database development yang sudah mempunyai 8 tabel bisnis dan sudah pernah menjalankan migration `100001` sampai `100008`, jangan reset database dan jangan menjalankan seeder awal lagi.
+## Update lokal
 
 ```powershell
+cd G:\xampp\htdocs\iuran_dev
 git pull origin main
+composer install
 php spark migrate:status
+php spark routes
 ```
 
-Pastikan migration berikut sudah berstatus migrated:
+Jangan menjalankan seeder pada database development/production existing yang sudah berisi data operasional.
+
+## Schema database existing
+
+Migration aplikasi sampai saat ini:
 
 ```text
 2026-09-11-100001_CreateGolonganPenjualTable
@@ -77,21 +80,23 @@ Pastikan migration berikut sudah berstatus migrated:
 2026-09-11-100006_CreateTransaksiIuranTable
 2026-09-11-100007_CreateTransaksiPengeluaranTable
 2026-09-11-100008_CreateSetoranPimpinanTable
-```
-
-Migration tambahan aplikasi:
-
-```text
 2026-09-13-100009_CreateCiSessionsTable
+2026-09-16-100010_AddAlamatToPenjualTable
 ```
 
-Jika hanya `100009` yang pending, jalankan:
+Selain migration tersebut, fitur bukti foto Setoran Resmi memakai kolom yang diterapkan manual melalui phpMyAdmin sesuai kebijakan hosting:
 
-```powershell
-php spark migrate
+```sql
+ALTER TABLE `setoran_pimpinan`
+ADD COLUMN `bukti_setoran` VARCHAR(255) NULL
+AFTER `keterangan`;
 ```
 
-Aplikasi memakai **database-backed session** pada tabel `ci_sessions`.
+Jalankan SQL tersebut **hanya jika kolom belum ada**. Cek terlebih dahulu:
+
+```sql
+SHOW COLUMNS FROM `setoran_pimpinan` LIKE 'bukti_setoran';
+```
 
 ## Fresh install
 
@@ -102,24 +107,24 @@ composer install
 php spark migrate
 ```
 
-Sebelum menjalankan seeder fresh-install, isi `.env` dengan password awal yang hanya diketahui administrator:
+Setelah migration, tambahkan kolom `bukti_setoran` menggunakan SQL manual di atas. Kemudian, bila memang membuat instalasi baru, isi password awal seeder melalui `.env`:
 
 ```dotenv
 seed.operatorPassword = "GANTI_DENGAN_PASSWORD_OPERATOR"
 seed.pimpinanPassword = "GANTI_DENGAN_PASSWORD_PIMPINAN"
 ```
 
-Kemudian:
+Lalu jalankan satu kali:
 
 ```powershell
 php spark db:seed IuranKantinSeeder
 ```
 
-Seeder membuat tiga golongan awal, singleton setting, akun Operator, dan akun Pimpinan. **Jangan jalankan seeder ini pada database existing yang sudah memiliki data awal.**
+Seeder fresh-install tidak boleh dijalankan pada database existing.
 
 ## `.env` lokal
 
-Contoh konfigurasi development:
+Contoh development:
 
 ```dotenv
 CI_ENVIRONMENT = development
@@ -135,133 +140,60 @@ database.default.DBDriver = MySQLi
 
 `.env` tidak boleh di-commit.
 
-## Scanner QR lokal
+## Alur transaksi
 
-File scanner aplikasi:
+**Iuran** menggunakan input bulk seluruh Penjual aktif. Penjual yang membayar dicentang, nominal diprefill dari Golongan dan dapat dioverride.
 
-```text
-assets-app/qrcode-lib/kartu-scanner.js
-```
+**Pengeluaran** dapat dilengkapi bukti nota opsional. JPG/JPEG/PNG maksimal 10 MB sebelum kompresi dikonversi menjadi JPG dengan target di bawah 500 KB.
 
-Decoder jsQR dipin ke **jsQR 1.4.0**, commit resmi:
+**Setoran Pimpinan** terdiri dari dua tahap: Cetak Form Setoran tidak memasukkan data ke database; Input Setoran Resmi dilakukan setelah dana benar-benar diserahkan dan baru mengurangi saldo. Setoran Resmi baru wajib memiliki foto bukti yang juga dikompresi menjadi JPG di bawah 500 KB.
 
-```text
-34d8eec1ec5d85496f3948ff02fcfe6406f89d81
-```
+## Dashboard
 
-Jika `assets-app/qrcode-lib/jsQR.js` belum tersedia, ambil sekali ke project lokal:
+Dashboard menampilkan ringkasan bulan berjalan, saldo kas keseluruhan, Aksi Cepat Operator, serta tiga grafik:
 
-```powershell
-Invoke-WebRequest `
-  -Uri "https://raw.githubusercontent.com/cozmo/jsQR/34d8eec1ec5d85496f3948ff02fcfe6406f89d81/dist/jsQR.js" `
-  -OutFile ".\assets-app\qrcode-lib\jsQR.js"
-```
-
-Lalu track sebagai vendor asset:
-
-```powershell
-git add assets-app/qrcode-lib/jsQR.js
-git commit -m "build: vendor jsQR 1.4.0 locally"
-git push origin main
-```
-
-Scanner juga menggunakan `BarcodeDetector` sebagai fallback pada browser Chromium yang mendukungnya. Kamera browser pada production membutuhkan **HTTPS**; `localhost` dapat memakai kamera pada browser modern.
-
-## Background kartu anggota
-
-Ukuran canvas kartu adalah:
-
-```text
-1011 x 638 px
-```
-
-Upload background kartu depan dan belakang melalui menu **Setting**. Background belakang bersifat statis. Kartu depan dirender server-side dan berisi data penjual serta QR verifikasi.
-
-Perilaku QR:
-
-- Pengunjung umum: hanya melihat Nama Penjual, Golongan, dan Status.
-- Operator yang sudah login: diarahkan ke detail internal Penjual dan riwayat iurannya.
-
-`kode_kartu` bersifat persisten. Regenerate QR hanya mengganti `kode_verifikasi`, sehingga QR lama tidak berlaku lagi tanpa mengganti kode kartu.
-
-## Pengeluaran
-
-Foto bukti nota bersifat opsional dan hanya menerima JPG/PNG. Server mengecilkan gambar dan mengompres hasil menjadi JPG dengan target **di bawah 500 KB**.
-
-## Setoran pimpinan
-
-Setoran memakai dua tahap terpisah:
-
-1. **Cetak Form Setoran** — hanya menghasilkan PDF dan tidak menyimpan transaksi.
-2. **Input Setoran Resmi** — dilakukan setelah uang benar-benar diserahkan kepada pimpinan; tahap ini baru menyimpan `setoran_pimpinan` dan mengurangi saldo kas.
+- iuran harian bulan berjalan;
+- iuran enam bulan terakhir;
+- pengeluaran enam bulan terakhir.
 
 ## Laporan
 
-Tersedia:
+Tersedia Laporan Iuran, Pengeluaran, Setoran, dan Rekap Kas. Rekap Kas menggabungkan seluruh Iuran pada tanggal yang sama menjadi satu total harian, sementara Pengeluaran dan Setoran tetap per transaksi.
 
-- Laporan Iuran
-- Laporan Pengeluaran
-- Laporan Setoran
-- Rekap Kas dengan saldo berjalan
+Filename export Excel laporan membawa periode filter. Export Penjual tidak memakai periode karena merupakan master data.
 
-Export Excel menggunakan filter yang sama dengan halaman laporan.
+## Kartu dan QR
 
-## Role
+Canvas Kartu Anggota berukuran `1011 x 638 px`. Kartu depan berisi nama, golongan, lokasi/lapak, No. HP, tanggal bergabung, alamat, QR, dan kode kartu. Background depan/belakang diupload dari Setting.
 
-### Operator
+QR publik hanya menampilkan Nama, Golongan, dan Status. Operator yang sudah login diarahkan ke Detail Penjual. Scanner browser memakai jsQR lokal dan membutuhkan HTTPS pada production untuk akses kamera.
 
-Dapat melakukan input transaksi, mengelola master data, setting, kartu anggota, scanner, user, dan melihat laporan.
+## Upload dan backup
 
-### Pimpinan
-
-Read-only untuk Dashboard dan Laporan. Tombol aksi/input tidak ditampilkan di UI dan route tulis dilindungi filter Operator.
-
-## Pemeriksaan sebelum UAT
-
-Jalankan dari root project:
-
-```powershell
-composer install
-php spark migrate:status
-php spark routes
-```
-
-Syntax PHP juga diperiksa otomatis melalui GitHub Actions workflow `.github/workflows/ci.yml`.
-
-Checklist minimum browser:
+Data upload dinamis:
 
 ```text
-[ ] Login Operator
-[ ] Login Pimpinan dan pastikan tidak ada menu input/master
-[ ] Tambah/edit/arsip master data
-[ ] Input iuran bulk beberapa penjual
-[ ] Input pengeluaran + foto nota
-[ ] Cetak form iuran mingguan
-[ ] Cetak form setoran tanpa perubahan saldo
-[ ] Simpan setoran resmi dan cek saldo
-[ ] Filter tiap laporan dan bandingkan hasil Excel
-[ ] Upload logo/background kartu
-[ ] Generate kartu depan dan ZIP lengkap
-[ ] Scan QR sebagai publik
-[ ] Scan QR sebagai Operator
-[ ] Regenerate QR lalu pastikan QR lama tidak valid
-[ ] Uji tampilan Android Chrome
+uploads/branding/
+uploads/bukti_nota/
+uploads/bukti_setoran/
 ```
 
-## Production / shared hosting
+Ketiga folder tersebut dan database wajib masuk backup operasional. Folder harus writable oleh PHP di hosting.
 
-Sebelum production:
+## Production
 
-- gunakan HTTPS;
-- set `CI_ENVIRONMENT = production`;
-- sesuaikan `app.baseURL` ke URL HTTPS production;
-- pastikan `writable/`, `uploads/branding/`, dan `uploads/bukti_nota/` writable oleh PHP;
-- jalankan `composer install --no-dev --optimize-autoloader`;
-- jalankan migration yang masih pending;
-- jangan upload `.env` ke repository;
-- verifikasi URL langsung ke `/app`, `/vendor`, `/writable`, dan `/.env` menghasilkan akses ditolak;
-- ganti password akun awal sebelum aplikasi dipakai operasional.
+Gunakan HTTPS dan `CI_ENVIRONMENT = production`. Atur `app.baseURL`, database, secure cookie, dan trusted proxy sesuai hosting. Bila hosting tidak menyediakan Composer/SSH, jalankan `composer install --no-dev --optimize-autoloader` di lokal lalu sertakan `vendor/` dalam ZIP deployment.
 
-## Branch pengembangan
+Jangan menyimpan credential production di repository.
 
-Sesuai dokumen acuan, pengembangan project ini dilakukan langsung pada branch `main`.
+## CI
+
+GitHub Actions saat ini memeriksa:
+
+- validitas Composer;
+- instalasi dependency;
+- syntax PHP seluruh `app/`;
+- syntax JavaScript utama;
+- kompilasi route.
+
+Audit teknis dan rekomendasi pengembangan dicatat terpisah agar Dokumen Acuan tetap menjadi baseline operasional yang bersih.
