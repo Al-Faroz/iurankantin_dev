@@ -99,29 +99,38 @@ Perbaikan yang diterapkan:
 6. migration menghentikan proses bila masih ada duplikasi historis;
 7. migration idempotent terhadap index yang sudah dibuat manual melalui phpMyAdmin.
 
-**Status:** implementasi source selesai; unique index production harus diterapkan setelah verifikasi data historis tidak mengandung duplikasi.
+**Status:** source selesai; unique index production harus diterapkan setelah verifikasi data historis tidak mengandung duplikasi.
+
+### L. Histori Golongan Iuran mengikuti Golongan Penjual saat ini
+
+Sebelumnya Laporan Iuran mengambil Golongan dari master Penjual saat laporan dibuka, sehingga histori lama dapat berubah ketika Penjual pindah Golongan atau master Golongan diubah.
+
+Perbaikan yang diterapkan:
+
+1. `transaksi_iuran` menyimpan `id_golongan_snapshot`, `nama_golongan_snapshot`, dan `nominal_golongan_snapshot`;
+2. Input Iuran menyalin nilai Golongan saat transaksi disimpan;
+3. Laporan Iuran menampilkan nama Golongan snapshot dan filter Golongan menggunakan ID snapshot;
+4. Koreksi Iuran menampilkan dan mengurutkan berdasarkan snapshot Golongan;
+5. migration `100012` dan SQL phpMyAdmin manual disediakan;
+6. data historis existing di-backfill dari kondisi Golongan Penjual pada saat SQL/migration dijalankan.
+
+**Batas histori:** perubahan Golongan yang sudah terjadi sebelum fitur snapshot ada tidak dapat direkonstruksi otomatis karena data lama memang tidak menyimpan histori tersebut.
+
+**Status:** source selesai; SQL snapshot production harus dijalankan sebelum source baru diaktifkan.
 
 ## 3. Temuan Prioritas Tinggi yang Masih Tersisa
 
-### 3.1 Histori Golongan Iuran mengikuti Golongan Penjual saat ini
-
-`transaksi_iuran` hanya menyimpan `id_penjual`, tanggal, dan nominal. Laporan mengambil Golongan melalui data Penjual saat laporan dibuka.
-
-**Dampak:** bila Penjual pindah Golongan, transaksi lama dapat terlihat sebagai Golongan baru dan filter histori ikut berubah.
-
-**Rekomendasi:** bila histori Golongan harus immutable, simpan snapshot Golongan pada transaksi.
-
-### 3.2 File bukti transaksi berada di web root publik
+### 3.1 File bukti transaksi berada di web root publik
 
 Bukti Nota dan Bukti Setoran berada di `uploads/` dan dapat dibuka dengan URL langsung bila nama URL diketahui. Nama file acak dan eksekusi script sudah diblokir, tetapi file belum berada di storage privat.
 
 **Rekomendasi:** pindahkan ke `writable/uploads/` dan sajikan melalui route terautentikasi Operator.
 
-### 3.3 Schema `bukti_setoran` masih di luar migration
+### 3.2 Schema `bukti_setoran` masih di luar migration
 
 Kolom `bukti_setoran` diterapkan manual melalui phpMyAdmin untuk deployment existing. Fresh install dengan migration saja belum menghasilkan field tersebut bila SQL manual tidak dijalankan.
 
-**Rekomendasi:** pada pekerjaan schema berikutnya, putuskan apakah perubahan manual existing tetap dipertahankan sebagai SQL operasional sekaligus ditambahkan migration idempotent untuk fresh install.
+**Rekomendasi:** tambahkan migration idempotent untuk fresh install sambil tetap mempertahankan SQL operasional untuk hosting existing.
 
 ## 4. Temuan Prioritas Menengah
 
@@ -166,6 +175,7 @@ Automated test aplikasi masih terbatas. Prioritas test berikutnya:
 - autentikasi Operator/Pimpinan;
 - akun Nonaktif kehilangan akses;
 - satu Penjual maksimal satu Iuran per tanggal;
+- snapshot Golongan tetap setelah master Penjual/Golongan berubah;
 - Input Iuran batch dan rollback;
 - saldo kas;
 - Rekap Kas;
@@ -202,18 +212,19 @@ Rekomendasi operasional: jalankan `composer audit --locked` sebelum paket deploy
 - Rekap Kas menghitung saldo awal dan berjalan.
 - Export mengikuti filter dan filename periode.
 - Input Iuran sudah memiliki perlindungan duplikasi berlapis.
+- Histori Golongan Iuran sudah memakai snapshot transaksi.
 - UI utama mobile-responsive.
 
 ## 8. Urutan Pekerjaan Berikutnya
 
-Prioritas setelah implementasi duplicate Iuran:
+Prioritas setelah duplicate Iuran dan snapshot Golongan selesai:
 
-1. putuskan kebutuhan **snapshot Golongan historis**;
-2. rencanakan **storage privat bukti Nota/Setoran**;
+1. rencanakan **storage privat bukti Nota/Setoran**;
+2. rapikan **schema `bukti_setoran` untuk fresh install** dengan migration idempotent;
 3. tambah **automated test aplikasi** dan PHPUnit di CI;
 4. putuskan kebijakan **tanggal masa depan**;
 5. putuskan apakah **Setoran melebihi saldo** harus diblokir;
 6. pertimbangkan audit trail transaksi;
 7. tambahkan batas dimensi upload branding.
 
-Poin tersebut tidak diubah otomatis karena memengaruhi schema, aturan bisnis, atau alur operasional.
+Poin tersebut belum diubah otomatis karena memengaruhi schema, aturan bisnis, storage, atau alur operasional.
