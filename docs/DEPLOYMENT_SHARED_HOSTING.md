@@ -85,7 +85,7 @@ AFTER `keterangan`;
 
 ### 4.2 Aturan satu Iuran per Penjual per tanggal
 
-Source terbaru menetapkan aturan bisnis:
+Source menetapkan aturan bisnis:
 
 > satu Penjual maksimal satu transaksi Iuran pada tanggal yang sama.
 
@@ -118,14 +118,60 @@ WHERE `Key_name` = 'uniq_iuran_penjual_tanggal';
 
 Jika query duplikasi menghasilkan baris, **jangan jalankan ALTER TABLE dulu**. Koreksi transaksi ganda terlebih dahulu dengan memastikan record mana yang benar. Setelah bersih, ulangi query deteksi dan baru buat unique index.
 
-Migration `100011_AddUniqueIuranPerPenjualTanggal` juga tersedia di source. Migration tersebut:
+Migration `100011_AddUniqueIuranPerPenjualTanggal` tersedia di source. Migration tersebut berhenti bila menemukan duplikasi historis dan tidak membuat ulang index yang sudah diterapkan manual melalui phpMyAdmin.
 
-- berhenti bila menemukan duplikasi historis;
-- tidak membuat ulang index bila index sudah diterapkan manual melalui phpMyAdmin.
+### 4.3 Snapshot Golongan transaksi Iuran
 
-Jadi, jika suatu saat terminal tersedia dan `php spark migrate` dijalankan setelah index dibuat manual, migration tetap aman dan hanya akan mencatat status migration.
+Source terbaru menyimpan snapshot Golongan pada setiap transaksi Iuran agar histori tidak berubah ketika Penjual pindah Golongan atau nama/nominal Golongan diubah.
 
-### 4.3 Jangan reset database
+**Pada hosting existing, SQL ini harus diterapkan sebelum source terbaru diaktifkan.** File lengkap tersedia di:
+
+```text
+docs/SQL_100012_GOLONGAN_SNAPSHOT_IURAN.sql
+```
+
+SQL utama:
+
+```sql
+ALTER TABLE `transaksi_iuran`
+    ADD COLUMN IF NOT EXISTS `id_golongan_snapshot` INT(11) UNSIGNED NULL AFTER `id_penjual`,
+    ADD COLUMN IF NOT EXISTS `nama_golongan_snapshot` VARCHAR(100) NULL AFTER `id_golongan_snapshot`,
+    ADD COLUMN IF NOT EXISTS `nominal_golongan_snapshot` DECIMAL(12,2) NULL AFTER `nama_golongan_snapshot`;
+
+UPDATE `transaksi_iuran` AS `ti`
+INNER JOIN `penjual` AS `p`
+    ON `p`.`id_penjual` = `ti`.`id_penjual`
+LEFT JOIN `golongan_penjual` AS `g`
+    ON `g`.`id_golongan` = `p`.`id_golongan`
+SET
+    `ti`.`id_golongan_snapshot` = COALESCE(`ti`.`id_golongan_snapshot`, `p`.`id_golongan`),
+    `ti`.`nama_golongan_snapshot` = COALESCE(`ti`.`nama_golongan_snapshot`, `g`.`nama_golongan`),
+    `ti`.`nominal_golongan_snapshot` = COALESCE(`ti`.`nominal_golongan_snapshot`, `g`.`nominal_iuran`)
+WHERE `ti`.`id_golongan_snapshot` IS NULL
+   OR `ti`.`nama_golongan_snapshot` IS NULL
+   OR `ti`.`nominal_golongan_snapshot` IS NULL;
+
+ALTER TABLE `transaksi_iuran`
+ADD INDEX IF NOT EXISTS `idx_iuran_golongan_snapshot` (`id_golongan_snapshot`);
+```
+
+Verifikasi:
+
+```sql
+SELECT COUNT(*) AS `jumlah_belum_snapshot`
+FROM `transaksi_iuran`
+WHERE `id_golongan_snapshot` IS NULL
+   OR `nama_golongan_snapshot` IS NULL
+   OR `nominal_golongan_snapshot` IS NULL;
+```
+
+Hasil yang diharapkan: `jumlah_belum_snapshot = 0`.
+
+Data lama di-backfill memakai kondisi Golongan Penjual saat SQL dijalankan. Perubahan Golongan yang sudah terjadi sebelum fitur snapshot tersedia tidak dapat direkonstruksi otomatis.
+
+Migration `100012_AddGolonganSnapshotToTransaksiIuran` juga tersedia untuk lokal/fresh install dan bersifat idempotent terhadap schema yang sudah diterapkan manual.
+
+### 4.4 Jangan reset database
 
 Jangan import ulang database development ke production hanya untuk menambah schema. Jangan menjalankan seeder pada database existing.
 
@@ -237,6 +283,8 @@ Uji Chrome Android/Chromium:
 [ ] Penjual yang sudah tercatat tidak dapat dipilih lagi
 [ ] Coba request duplikat dan pastikan server menolak
 [ ] Koreksi Iuran lalu input ulang Penjual pada tanggal yang sama
+[ ] Verifikasi snapshot Golongan transaksi baru terisi
+[ ] Ubah Golongan satu Penjual uji dan pastikan transaksi lama tetap menampilkan Golongan historis di Laporan/Koreksi
 [ ] Pengeluaran + upload/kompres nota
 [ ] Cetak Form Iuran Mingguan
 [ ] Cetak Form Setoran tanpa insert database
@@ -270,7 +318,7 @@ Jika aplikasi 500 atau gagal setelah upload, cek:
 2. `vendor/`;
 3. `.env`;
 4. permission;
-5. schema database, termasuk `bukti_setoran` dan unique index Iuran;
+5. schema database, termasuk `bukti_setoran`, unique index Iuran, dan kolom snapshot Golongan;
 6. `.htaccess`/rewrite;
 7. `writable/logs/` atau error log panel hosting.
 
