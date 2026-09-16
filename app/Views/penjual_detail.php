@@ -29,6 +29,9 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
                     <dt class="col-5 mb-3">Lokasi / Lapak</dt>
                     <dd class="col-7 mb-3"><?= esc($penjual['lokasi_lapak'] ?: '-') ?></dd>
 
+                    <dt class="col-5 mb-3">Alamat</dt>
+                    <dd class="col-7 mb-3"><?= esc($penjual['alamat'] ?: '-') ?></dd>
+
                     <dt class="col-5 mb-3">No. HP</dt>
                     <dd class="col-7 mb-3"><?= esc($penjual['no_hp'] ?: '-') ?></dd>
 
