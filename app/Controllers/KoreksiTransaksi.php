@@ -68,7 +68,10 @@ class KoreksiTransaksi extends BaseController
             throw PageNotFoundException::forPageNotFound('Transaksi iuran tidak ditemukan.');
         }
 
-        $model->delete($id, true);
+        if ($model->delete($id, true) === false) {
+            return redirect()->to($this->returnUrl())
+                ->with('error', 'Transaksi iuran gagal dihapus. Silakan coba kembali.');
+        }
 
         return redirect()->to($this->returnUrl())->with('success', 'Transaksi iuran yang salah berhasil dihapus permanen.');
     }
@@ -81,15 +84,12 @@ class KoreksiTransaksi extends BaseController
             throw PageNotFoundException::forPageNotFound('Transaksi pengeluaran tidak ditemukan.');
         }
 
-        $model->delete($id, true);
-
-        $path = (string) ($row['bukti_nota'] ?? '');
-        if ($path !== '' && str_starts_with($path, 'uploads/bukti_nota/')) {
-            $fullPath = ROOTPATH . $path;
-            if (is_file($fullPath)) {
-                @unlink($fullPath);
-            }
+        if ($model->delete($id, true) === false) {
+            return redirect()->to($this->returnUrl())
+                ->with('error', 'Transaksi pengeluaran gagal dihapus. Silakan coba kembali.');
         }
+
+        $this->hapusFileUpload((string) ($row['bukti_nota'] ?? ''), 'uploads/bukti_nota/');
 
         return redirect()->to($this->returnUrl())->with('success', 'Transaksi pengeluaran yang salah berhasil dihapus permanen.');
     }
@@ -97,11 +97,17 @@ class KoreksiTransaksi extends BaseController
     public function hapusSetoran(int $id)
     {
         $model = new SetoranPimpinanModel();
-        if ($model->find($id) === null) {
+        $row = $model->find($id);
+        if ($row === null) {
             throw PageNotFoundException::forPageNotFound('Transaksi setoran tidak ditemukan.');
         }
 
-        $model->delete($id, true);
+        if ($model->delete($id, true) === false) {
+            return redirect()->to($this->returnUrl())
+                ->with('error', 'Transaksi setoran gagal dihapus. Silakan coba kembali.');
+        }
+
+        $this->hapusFileUpload((string) ($row['bukti_setoran'] ?? ''), 'uploads/bukti_setoran/');
 
         return redirect()->to($this->returnUrl())->with('success', 'Transaksi setoran yang salah berhasil dihapus permanen.');
     }
@@ -115,10 +121,10 @@ class KoreksiTransaksi extends BaseController
         $awal = (string) ($this->request->getGet('tanggal_awal') ?: $awalDefault);
         $akhir = (string) ($this->request->getGet('tanggal_akhir') ?: $akhirDefault);
 
-        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $awal)) {
+        if (! $this->isValidDate($awal)) {
             $awal = $awalDefault;
         }
-        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $akhir)) {
+        if (! $this->isValidDate($akhir)) {
             $akhir = $akhirDefault;
         }
         if ($awal > $akhir) {
@@ -133,7 +139,7 @@ class KoreksiTransaksi extends BaseController
         $awal = (string) $this->request->getPost('tanggal_awal');
         $akhir = (string) $this->request->getPost('tanggal_akhir');
 
-        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $awal) !== 1 || preg_match('/^\d{4}-\d{2}-\d{2}$/', $akhir) !== 1) {
+        if (! $this->isValidDate($awal) || ! $this->isValidDate($akhir)) {
             return $this->baseUrl . '/koreksi-transaksi';
         }
 
@@ -141,5 +147,24 @@ class KoreksiTransaksi extends BaseController
             'tanggal_awal' => $awal,
             'tanggal_akhir' => $akhir,
         ]);
+    }
+
+    private function isValidDate(string $value): bool
+    {
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value, new \DateTimeZone('Asia/Jakarta'));
+
+        return $date !== false && $date->format('Y-m-d') === $value;
+    }
+
+    private function hapusFileUpload(string $relativePath, string $allowedPrefix): void
+    {
+        if ($relativePath === '' || ! str_starts_with($relativePath, $allowedPrefix)) {
+            return;
+        }
+
+        $fullPath = ROOTPATH . $relativePath;
+        if (is_file($fullPath)) {
+            @unlink($fullPath);
+        }
     }
 }
