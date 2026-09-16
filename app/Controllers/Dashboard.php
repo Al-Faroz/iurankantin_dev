@@ -24,7 +24,9 @@ class Dashboard extends BaseController
             ->where('deleted_at', null)
             ->countAllResults();
 
-        $chart = $this->monthlyTrend();
+        $iuranBulanBerjalan = $this->currentMonthDailyTrend();
+        $iuranEnamBulan = $this->sixMonthTrend('transaksi_iuran', 'tanggal');
+        $pengeluaranEnamBulan = $this->sixMonthTrend('transaksi_pengeluaran', 'tanggal');
 
         return view('dashboard_index', [
             'title' => 'Dashboard',
@@ -34,8 +36,9 @@ class Dashboard extends BaseController
             'setoranHariIni' => $setoranHariIni,
             'saldoKas' => $totalIuran - $totalPengeluaran - $totalSetoran,
             'penjualAktif' => $penjualAktif,
-            'chartLabels' => $chart['labels'],
-            'chartValues' => $chart['values'],
+            'iuranBulanBerjalan' => $iuranBulanBerjalan,
+            'iuranEnamBulan' => $iuranEnamBulan,
+            'pengeluaranEnamBulan' => $pengeluaranEnamBulan,
         ]);
     }
 
@@ -46,29 +49,62 @@ class Dashboard extends BaseController
         return (float) ($row['total'] ?? 0);
     }
 
-    private function monthlyTrend(): array
+    private function currentMonthDailyTrend(): array
     {
-        $db = db_connect();
-        $now = new \DateTimeImmutable('first day of this month', new \DateTimeZone('Asia/Jakarta'));
-        $start = $now->modify('-5 months');
-        $startDate = $start->format('Y-m-d');
+        $timezone = new \DateTimeZone('Asia/Jakarta');
+        $today = new \DateTimeImmutable('today', $timezone);
+        $start = $today->modify('first day of this month');
 
-        $iuran = $this->monthlyMap($db->table('transaksi_iuran'), 'tanggal', $startDate);
-        $pengeluaran = $this->monthlyMap($db->table('transaksi_pengeluaran'), 'tanggal', $startDate);
-        $setoran = $this->monthlyMap($db->table('setoran_pimpinan'), 'tanggal_form', $startDate);
+        $rows = db_connect()->table('transaksi_iuran')
+            ->select('tanggal, SUM(nominal) AS total', false)
+            ->where('tanggal >=', $start->format('Y-m-d'))
+            ->where('tanggal <=', $today->format('Y-m-d'))
+            ->groupBy('tanggal')
+            ->orderBy('tanggal', 'ASC')
+            ->get()
+            ->getResultArray();
+
+        $map = [];
+        foreach ($rows as $row) {
+            $map[$row['tanggal']] = (float) $row['total'];
+        }
 
         $labels = [];
         $values = [];
-        $monthNames = [1 => 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+        for ($date = $start; $date <= $today; $date = $date->modify('+1 day')) {
+            $key = $date->format('Y-m-d');
+            $labels[] = $date->format('d') . ' ' . $this->monthName((int) $date->format('n'));
+            $values[] = $map[$key] ?? 0.0;
+        }
 
+        return [
+            'labels' => $labels,
+            'values' => $values,
+            'total' => array_sum($values),
+        ];
+    }
+
+    private function sixMonthTrend(string $table, string $dateField): array
+    {
+        $timezone = new \DateTimeZone('Asia/Jakarta');
+        $currentMonth = new \DateTimeImmutable('first day of this month', $timezone);
+        $start = $currentMonth->modify('-5 months');
+        $map = $this->monthlyMap(db_connect()->table($table), $dateField, $start->format('Y-m-d'));
+
+        $labels = [];
+        $values = [];
         for ($i = 0; $i < 6; $i++) {
             $month = $start->modify('+' . $i . ' months');
             $key = $month->format('Y-m');
-            $labels[] = $monthNames[(int) $month->format('n')] . ' ' . $month->format('Y');
-            $values[] = ($iuran[$key] ?? 0) - ($pengeluaran[$key] ?? 0) - ($setoran[$key] ?? 0);
+            $labels[] = $this->monthName((int) $month->format('n')) . ' ' . $month->format('Y');
+            $values[] = $map[$key] ?? 0.0;
         }
 
-        return ['labels' => $labels, 'values' => $values];
+        return [
+            'labels' => $labels,
+            'values' => $values,
+            'total' => array_sum($values),
+        ];
     }
 
     private function monthlyMap($builder, string $dateField, string $startDate): array
@@ -86,5 +122,23 @@ class Dashboard extends BaseController
         }
 
         return $map;
+    }
+
+    private function monthName(int $month): string
+    {
+        return [
+            1 => 'Jan',
+            2 => 'Feb',
+            3 => 'Mar',
+            4 => 'Apr',
+            5 => 'Mei',
+            6 => 'Jun',
+            7 => 'Jul',
+            8 => 'Agu',
+            9 => 'Sep',
+            10 => 'Okt',
+            11 => 'Nov',
+            12 => 'Des',
+        ][$month] ?? '';
     }
 }
