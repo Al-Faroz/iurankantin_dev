@@ -2,165 +2,127 @@
 
 **Tanggal audit:** 16 September 2026
 
-Dokumen ini memisahkan hasil audit teknis dari Dokumen Acuan. Dokumen Acuan berfungsi sebagai baseline aplikasi; file ini mencatat bug yang ditemukan, perbaikan yang sudah dilakukan, risiko yang masih tersisa, dan prioritas berikutnya.
+Dokumen ini memisahkan hasil audit teknis dari Dokumen Acuan. Dokumen Acuan berfungsi sebagai baseline aplikasi; file ini mencatat masalah yang ditemukan, perbaikan yang sudah dilakukan, risiko yang masih tersisa, dan prioritas berikutnya.
 
 ## 1. Ruang Lingkup Audit
 
-Area yang diperiksa:
+Area yang diperiksa meliputi routing/hak akses, login/session/CSRF, master data, seluruh transaksi, Dashboard, Laporan/Excel, Kartu/QR, upload file, migration/schema, `.htaccess`, dependency Composer, shared hosting, CI, dan automated test.
 
-- routing dan hak akses;
-- login, session, CSRF, secure headers;
-- master Penjual/Golongan/Kategori/User;
-- Input Iuran dan Koreksi Transaksi;
-- Pengeluaran dan file bukti;
-- Setoran Pimpinan dan file bukti;
-- Dashboard dan perhitungan saldo;
-- Laporan, Rekap Kas, dan export Excel;
-- Kartu Anggota, QR, dan scanner;
-- upload/branding;
-- migration/schema;
-- `.htaccess` dan shared hosting;
-- dependency Composer;
-- CI dan automated test.
-
-## 2. Bug/Robustness yang Sudah Diperbaiki
+## 2. Temuan yang Sudah Diperbaiki
 
 ### A. Session lama masih mempercayai role/status login
 
-Request terproteksi sekarang memvalidasi `id_user`, `status_aktif`, dan role terhadap database. Session nama/username/role disinkronkan dengan database.
+Request terproteksi sekarang memvalidasi `id_user`, status aktif, dan role terhadap database. Perubahan role/nonaktif berlaku tanpa menunggu session kedaluwarsa.
 
 **Status:** selesai.
 
-### B. Koreksi Setoran tidak membersihkan bukti foto
+### B. Lifecycle file bukti tidak konsisten dengan database
 
-Koreksi Setoran sekarang mengambil record lama, memastikan hard delete berhasil, lalu menghapus file bukti terkait.
-
-**Status:** selesai.
-
-### C. File transaksi dapat terhapus walaupun delete database gagal
-
-Penghapusan Pengeluaran/Setoran sekarang memeriksa hasil database. File hanya dibersihkan setelah hard delete berhasil.
+Delete Pengeluaran/Setoran dan Koreksi sekarang memeriksa hasil database sebelum membersihkan file. Upload yang gagal disimpan ke database juga dibersihkan.
 
 **Status:** selesai.
 
-### D. Upload nota dapat menjadi yatim bila insert gagal
+### C. Branding lama dapat hilang bila update Setting gagal
 
-Hasil insert Pengeluaran diperiksa dan file baru dibersihkan bila write gagal.
-
-**Status:** selesai.
-
-### E. Branding lama berpotensi terhapus bila update Setting gagal
-
-File lama baru dihapus setelah insert/update Setting berhasil menyimpan path baru.
+File lama baru dibersihkan setelah database berhasil menyimpan path pengganti.
 
 **Status:** selesai.
 
-### F. Formula injection pada export Excel
+### D. Formula injection export Excel
 
-Nilai PHP bertipe string diekspor sebagai `TYPE_STRING`, sementara data numerik tetap sebagai angka.
-
-**Status:** selesai.
-
-### G. Filter tanggal hanya memeriksa pola
-
-Laporan dan Koreksi sekarang memvalidasi tanggal kalender menggunakan `DateTimeImmutable::createFromFormat()`.
+String diekspor menggunakan `TYPE_STRING`; data numerik tetap numerik.
 
 **Status:** selesai.
 
-### H. Folder bukti Setoran belum konsisten di `.gitignore`
+### E. Validasi tanggal filter hanya memeriksa pola
 
-`uploads/bukti_setoran/` sudah dicantumkan bersama upload dinamis lain.
-
-**Status:** selesai.
-
-### I. CRUD master dapat memberi pesan berhasil saat write gagal
-
-Write Penjual, Golongan, Kategori Pengeluaran, dan User sekarang memeriksa hasil database sebelum menampilkan sukses.
+Filter Laporan/Koreksi sekarang memastikan tanggal kalender benar-benar valid.
 
 **Status:** selesai.
 
-### J. Generate kode kartu tidak memeriksa kegagalan update
+### F. CRUD master dapat memberi pesan sukses saat write gagal
 
-`ensureCodes()` menghentikan proses bila penyimpanan `kode_kartu`/`kode_verifikasi` gagal.
+Write Penjual, Golongan, Kategori, User, serta generate kode kartu sekarang memeriksa hasil database.
 
 **Status:** selesai.
 
-### K. Duplikasi Iuran Penjual pada tanggal yang sama
+### G. Duplikasi Iuran Penjual pada tanggal yang sama
 
-Aturan bisnis sudah diputuskan: **satu Penjual maksimal satu transaksi Iuran pada satu tanggal**.
+Aturan bisnis: **satu Penjual maksimal satu Iuran per tanggal**.
 
-Perbaikan yang diterapkan:
+Proteksi:
 
-1. Input Iuran memuat transaksi yang sudah ada pada tanggal terpilih;
-2. Penjual yang sudah tercatat ditampilkan sebagai `Tercatat` dan tidak dapat dicentang lagi;
-3. perubahan tanggal Input Iuran memuat ulang status pembayaran;
-4. `IuranService` memeriksa duplikasi sebelum insert batch;
-5. unique index database `uniq_iuran_penjual_tanggal (id_penjual, tanggal)` disediakan melalui migration `100011`;
-6. migration menghentikan proses bila masih ada duplikasi historis;
-7. migration idempotent terhadap index yang sudah dibuat manual melalui phpMyAdmin.
+1. UI menandai Penjual yang sudah `Tercatat`;
+2. service server menolak duplikat;
+3. unique index `uniq_iuran_penjual_tanggal`;
+4. migration `100011` dan SQL manual production.
 
-**Status:** source selesai; unique index production harus diterapkan setelah verifikasi data historis tidak mengandung duplikasi.
+**Status:** source selesai; production wajib memastikan unique index sudah diterapkan setelah data historis bersih.
 
-### L. Histori Golongan Iuran mengikuti Golongan Penjual saat ini
+### H. Histori Golongan berubah ketika master Penjual berubah
 
-Sebelumnya Laporan Iuran mengambil Golongan dari master Penjual saat laporan dibuka, sehingga histori lama dapat berubah ketika Penjual pindah Golongan atau master Golongan diubah.
+`transaksi_iuran` sekarang menyimpan `id_golongan_snapshot`, `nama_golongan_snapshot`, dan `nominal_golongan_snapshot`. Laporan dan Koreksi memakai snapshot tersebut.
 
-Perbaikan yang diterapkan:
+Migration `100012` dan `docs/SQL_100012_GOLONGAN_SNAPSHOT_IURAN.sql` tersedia. Data existing di-backfill dari kondisi Golongan pada saat SQL/migration dijalankan.
 
-1. `transaksi_iuran` menyimpan `id_golongan_snapshot`, `nama_golongan_snapshot`, dan `nominal_golongan_snapshot`;
-2. Input Iuran menyalin nilai Golongan saat transaksi disimpan;
-3. Laporan Iuran menampilkan nama Golongan snapshot dan filter Golongan menggunakan ID snapshot;
-4. Koreksi Iuran menampilkan dan mengurutkan berdasarkan snapshot Golongan;
-5. migration `100012` dan SQL phpMyAdmin manual disediakan;
-6. data historis existing di-backfill dari kondisi Golongan Penjual pada saat SQL/migration dijalankan.
+**Status:** selesai; production wajib menjalankan SQL snapshot sebelum source yang membaca field tersebut aktif.
 
-**Batas histori:** perubahan Golongan yang sudah terjadi sebelum fitur snapshot ada tidak dapat direkonstruksi otomatis karena data lama memang tidak menyimpan histori tersebut.
+### I. Bukti transaksi dapat diakses dengan URL file langsung
 
-**Status:** source selesai; SQL snapshot production harus dijalankan sebelum source baru diaktifkan.
+Perbaikan:
 
-## 3. Temuan Prioritas Tinggi yang Masih Tersisa
+1. upload bukti Nota/Setoran baru disimpan di `writable/uploads/...`;
+2. tombol/thumbnail bukti memakai route Operator terautentikasi;
+3. route mengirim gambar dengan `Cache-Control: private, no-store` dan `X-Content-Type-Options: nosniff`;
+4. resolver storage membatasi prefix dan menolak path traversal;
+5. file legacy di `uploads/bukti_nota/` dan `uploads/bukti_setoran/` tetap kompatibel tetapi akses HTTP langsung diblokir oleh root `.htaccess` dan `.htaccess` folder masing-masing;
+6. delete/koreksi dapat membersihkan path legacy maupun privat.
 
-### 3.1 File bukti transaksi berada di web root publik
+**Status:** selesai.
 
-Bukti Nota dan Bukti Setoran berada di `uploads/` dan dapat dibuka dengan URL langsung bila nama URL diketahui. Nama file acak dan eksekusi script sudah diblokir, tetapi file belum berada di storage privat.
+### J. `bukti_setoran` tidak tersedia pada fresh install migration-only
 
-**Rekomendasi:** pindahkan ke `writable/uploads/` dan sajikan melalui route terautentikasi Operator.
+Migration idempotent `100013_AddBuktiSetoranToSetoranPimpinan` sudah ditambahkan. Hosting existing tetap dapat menggunakan SQL phpMyAdmin tanpa konflik bila migration kelak dijalankan.
 
-### 3.2 Schema `bukti_setoran` masih di luar migration
+**Status:** selesai.
 
-Kolom `bukti_setoran` diterapkan manual melalui phpMyAdmin untuk deployment existing. Fresh install dengan migration saja belum menghasilkan field tersebut bila SQL manual tidak dijalankan.
+## 3. Temuan Prioritas Menengah yang Masih Tersisa
 
-**Rekomendasi:** tambahkan migration idempotent untuk fresh install sambil tetap mempertahankan SQL operasional untuk hosting existing.
-
-## 4. Temuan Prioritas Menengah
-
-### 4.1 Tanggal transaksi masa depan masih diizinkan
+### 3.1 Tanggal transaksi masa depan masih diizinkan
 
 Input Iuran, Pengeluaran, dan Setoran memvalidasi format tetapi belum menolak tanggal setelah hari ini.
 
 **Dampak:** Saldo Kas dapat memasukkan transaksi masa depan sementara beberapa card/grafik hanya menghitung sampai hari ini.
 
-### 4.2 Setoran dapat melebihi saldo kas
+**Perlu keputusan bisnis:** apakah future date harus selalu ditolak atau memang diperlukan untuk backdate/penjadwalan tertentu.
+
+### 3.2 Setoran dapat melebihi saldo kas
 
 Tidak ada validasi yang membatasi Setoran Resmi terhadap saldo kas tersedia.
 
 **Dampak:** salah input dapat membuat saldo negatif.
 
-### 4.3 Download Kartu melalui GET dapat membuat kode baru
+**Perlu keputusan bisnis:** blokir keras atau cukup warning/konfirmasi.
+
+### 3.3 Download Kartu melalui GET dapat membuat kode baru
 
 Route download dapat memanggil `ensureCodes()`, sehingga GET berpotensi menulis state bila kode belum ada.
 
 **Rekomendasi:** buat kode saat Penjual dibuat, wajibkan Generate sebelum download, atau ubah flow mutasi menjadi POST.
 
-### 4.4 Belum ada audit trail perubahan transaksi keuangan
+### 3.4 Belum ada audit trail perubahan transaksi keuangan
 
-Edit Setoran dan hard delete transaksi belum memiliki tabel log perubahan sebelum/sesudah.
+Edit Setoran dan hard delete transaksi belum memiliki tabel log data sebelum/sesudah.
 
-### 4.5 Upload branding belum memiliki batas dimensi piksel
+**Rekomendasi:** bila pertanggungjawaban formal membutuhkan jejak koreksi, tambahkan audit log transaksi.
 
-Batas ukuran file ada, tetapi gambar dengan dimensi sangat besar masih dapat meningkatkan penggunaan memori ketika dirender.
+### 3.5 Upload branding belum memiliki batas dimensi piksel
 
-## 5. Quality Assurance dan Automated Test
+Batas ukuran file ada, tetapi gambar berdimensi sangat besar masih dapat meningkatkan penggunaan memori saat render.
+
+**Rekomendasi:** batasi dimensi atau normalisasi background kartu saat upload.
+
+## 4. Quality Assurance dan Automated Test
 
 GitHub Actions saat ini menjalankan:
 
@@ -170,61 +132,58 @@ GitHub Actions saat ini menjalankan:
 - JavaScript syntax lint;
 - `php spark routes`.
 
-Automated test aplikasi masih terbatas. Prioritas test berikutnya:
+Coverage test bisnis masih terbatas. Prioritas automated test:
 
-- autentikasi Operator/Pimpinan;
+- autentikasi dan role;
 - akun Nonaktif kehilangan akses;
-- satu Penjual maksimal satu Iuran per tanggal;
-- snapshot Golongan tetap setelah master Penjual/Golongan berubah;
-- Input Iuran batch dan rollback;
-- saldo kas;
-- Rekap Kas;
-- filter periode;
-- export Excel formula-safe;
-- lifecycle file bukti;
-- QR publik hanya menampilkan data minimum.
+- duplicate Iuran;
+- snapshot Golongan;
+- Input Iuran batch/rollback;
+- saldo dan Rekap Kas;
+- filter/export;
+- lifecycle dan otorisasi bukti privat;
+- QR publik hanya data minimum.
 
-Setelah test aplikasi stabil, PHPUnit sebaiknya ditambahkan ke workflow CI.
+Setelah test aplikasi stabil, PHPUnit sebaiknya masuk workflow CI.
 
-## 6. Dependency dan Supply Chain
+## 5. Dependency dan Supply Chain
 
-`composer.lock` pada audit mengunci dependency utama modern, termasuk CodeIgniter 4.7.4, Dompdf 3.1.6, PhpSpreadsheet 5.9.0, dan Endroid QR Code 6.0.9.
+Dependency utama yang dikunci saat audit antara lain CodeIgniter 4.7.4, Dompdf 3.1.6, PhpSpreadsheet 5.9.0, dan Endroid QR Code 6.0.9.
 
-Rekomendasi operasional: jalankan `composer audit --locked` sebelum paket deployment production dan pertimbangkan menambahkannya ke CI.
+Rekomendasi operasional: jalankan `composer audit --locked` sebelum paket deployment production dan pertimbangkan memasukkannya ke CI.
 
-## 7. Area yang Sudah Memadai
+## 6. Area yang Sudah Memadai
 
-- Auto Routing nonaktif dan route eksplisit.
-- POST + CSRF pada aksi tulis.
-- Operator/Pimpinan dipisah di route dan UI.
-- Login throttling aktif.
-- Database session aktif.
-- Password hashing standar PHP.
-- DBDebug production nonaktif.
-- Secure Headers global aktif.
-- Source/configuration diblokir `.htaccess`.
-- Upload menggunakan nama server-side acak.
-- Dompdf tidak mengizinkan remote resource/PHP execution.
-- Scanner QR membatasi URL ke origin/path aplikasi.
-- QR publik tidak mengambil data sensitif internal.
-- Upload transaksi dikompresi dan dibatasi ukuran.
-- Setoran tetap memakai dua tahap.
-- Rekap Kas menghitung saldo awal dan berjalan.
-- Export mengikuti filter dan filename periode.
-- Input Iuran sudah memiliki perlindungan duplikasi berlapis.
-- Histori Golongan Iuran sudah memakai snapshot transaksi.
+- explicit route dan Auto Routing nonaktif;
+- POST + CSRF untuk mutasi;
+- role Operator/Pimpinan di route dan UI;
+- throttling login;
+- database session;
+- password hashing;
+- DBDebug production nonaktif;
+- Secure Headers global;
+- proteksi source/configuration;
+- bukti transaksi privat;
+- Dompdf remote/PHP execution nonaktif;
+- scanner QR membatasi origin/path;
+- upload gambar dikompresi;
+- Setoran dua tahap;
+- Rekap Kas saldo awal/berjalan;
+- export berperiode dan formula-safe;
+- duplicate Iuran terlindungi berlapis;
+- snapshot Golongan historis;
+- schema fresh install semakin konsisten;
 - UI utama mobile-responsive.
 
-## 8. Urutan Pekerjaan Berikutnya
+## 7. Urutan Pekerjaan Berikutnya
 
-Prioritas setelah duplicate Iuran dan snapshot Golongan selesai:
+Prioritas teknis selanjutnya:
 
-1. rencanakan **storage privat bukti Nota/Setoran**;
-2. rapikan **schema `bukti_setoran` untuk fresh install** dengan migration idempotent;
-3. tambah **automated test aplikasi** dan PHPUnit di CI;
-4. putuskan kebijakan **tanggal masa depan**;
-5. putuskan apakah **Setoran melebihi saldo** harus diblokir;
-6. pertimbangkan audit trail transaksi;
-7. tambahkan batas dimensi upload branding.
+1. tambah automated test aplikasi dan PHPUnit di CI;
+2. perbaiki mutasi state Kartu pada route GET;
+3. tambah batas dimensi upload branding;
+4. putuskan kebijakan tanggal masa depan;
+5. putuskan kebijakan Setoran melebihi saldo;
+6. pertimbangkan audit trail transaksi keuangan.
 
-Poin tersebut belum diubah otomatis karena memengaruhi schema, aturan bisnis, storage, atau alur operasional.
+Poin 4–6 memerlukan keputusan operasional/bisnis sebelum diubah.
