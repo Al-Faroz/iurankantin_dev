@@ -12,9 +12,15 @@ class LaporanService
     public function iuran(array $filter): array
     {
         $builder = db_connect()->table('transaksi_iuran')
-            ->select('transaksi_iuran.*, penjual.nama_penjual, golongan_penjual.nama_golongan, users.nama AS nama_operator')
+            ->select(
+                'transaksi_iuran.*, penjual.nama_penjual, '
+                . 'COALESCE(transaksi_iuran.nama_golongan_snapshot, golongan_penjual.nama_golongan) AS nama_golongan, '
+                . 'COALESCE(transaksi_iuran.nominal_golongan_snapshot, golongan_penjual.nominal_iuran) AS nominal_golongan, '
+                . 'users.nama AS nama_operator',
+                false
+            )
             ->join('penjual', 'penjual.id_penjual = transaksi_iuran.id_penjual')
-            ->join('golongan_penjual', 'golongan_penjual.id_golongan = penjual.id_golongan')
+            ->join('golongan_penjual', 'golongan_penjual.id_golongan = penjual.id_golongan', 'left')
             ->join('users', 'users.id_user = transaksi_iuran.id_operator');
 
         $this->applyDateFilter($builder, 'transaksi_iuran.tanggal', $filter);
@@ -23,7 +29,15 @@ class LaporanService
             $builder->where('transaksi_iuran.id_penjual', (int) $filter['id_penjual']);
         }
         if (! empty($filter['id_golongan'])) {
-            $builder->where('penjual.id_golongan', (int) $filter['id_golongan']);
+            $idGolongan = (int) $filter['id_golongan'];
+            $builder
+                ->groupStart()
+                    ->where('transaksi_iuran.id_golongan_snapshot', $idGolongan)
+                    ->orGroupStart()
+                        ->where('transaksi_iuran.id_golongan_snapshot', null)
+                        ->where('penjual.id_golongan', $idGolongan)
+                    ->groupEnd()
+                ->groupEnd();
         }
 
         return $builder
