@@ -17,6 +17,7 @@ class PenjualModel extends Model
         'id_golongan',
         'no_hp',
         'lokasi_lapak',
+        'alamat',
         'status_aktif',
         'tanggal_daftar',
         'kode_kartu',
