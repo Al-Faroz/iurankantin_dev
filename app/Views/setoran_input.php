@@ -10,6 +10,7 @@ $keterangan = old('keterangan');
 if ($keterangan === null) {
     $keterangan = $setoran['keterangan'] ?? '';
 }
+$buktiSetoran = $setoran['bukti_setoran'] ?? null;
 $formAction = $isEdit
     ? $baseUrl . '/setoran/' . (int) $setoran['id_setoran'] . '/update'
     : $baseUrl . '/setoran/simpan';
@@ -26,12 +27,12 @@ $formAction = $isEdit
                     <?php if ($isEdit): ?>
                         Perbaiki data setoran yang sudah tercatat. Perubahan langsung memengaruhi perhitungan saldo kas.
                     <?php else: ?>
-                        Gunakan hanya setelah dana benar-benar sudah diserahkan kepada pimpinan. Data ini akan mengurangi saldo kas.
+                        Gunakan hanya setelah dana benar-benar sudah diserahkan kepada pimpinan. Bukti foto wajib dilampirkan.
                     <?php endif; ?>
                 </p>
             </div>
             <div class="card-body">
-                <form action="<?= esc($formAction) ?>" method="post" id="form-setoran-resmi">
+                <form action="<?= esc($formAction) ?>" method="post" enctype="multipart/form-data" id="form-setoran-resmi">
                     <?= csrf_field() ?>
                     <div class="row g-4">
                         <div class="col-12 col-md-6">
@@ -53,6 +54,45 @@ $formAction = $isEdit
                             <label for="periode_akhir" class="form-label">Periode Akhir <span class="text-danger">*</span></label>
                             <input type="date" class="form-control" id="periode_akhir" name="periode_akhir" value="<?= esc((string) $periodeAkhir) ?>" required>
                         </div>
+
+                        <div class="col-12">
+                            <label for="bukti_setoran" class="form-label">
+                                Foto Bukti Setoran
+                                <?php if (! $isEdit): ?><span class="text-danger">*</span><?php endif; ?>
+                            </label>
+                            <input type="file"
+                                   class="form-control"
+                                   id="bukti_setoran"
+                                   name="bukti_setoran"
+                                   accept="image/jpeg,image/png"
+                                   capture="environment"
+                                   <?= $isEdit ? '' : 'required' ?>>
+                            <div class="form-text">
+                                JPG/JPEG/PNG, maksimal 10 MB sebelum kompresi. Otomatis disimpan sebagai JPG di bawah 500 KB.
+                                <?= $isEdit ? 'Kosongkan jika tidak ingin mengganti bukti yang sudah ada.' : '' ?>
+                            </div>
+
+                            <?php if ($isEdit && $buktiSetoran): ?>
+                                <div class="d-flex align-items-center gap-3 mt-3 p-3 border rounded">
+                                    <a href="<?= esc($baseUrl . '/' . ltrim((string) $buktiSetoran, '/')) ?>" target="_blank" rel="noopener" class="d-block flex-shrink-0">
+                                        <img src="<?= esc($baseUrl . '/' . ltrim((string) $buktiSetoran, '/')) ?>"
+                                             alt="Bukti setoran saat ini"
+                                             class="rounded border"
+                                             style="width:72px;height:72px;object-fit:cover;">
+                                    </a>
+                                    <div>
+                                        <div class="fw-semibold">Bukti saat ini</div>
+                                        <div class="small text-body-secondary mb-1">Bukti lama tetap dipakai jika tidak memilih foto baru.</div>
+                                        <a href="<?= esc($baseUrl . '/' . ltrim((string) $buktiSetoran, '/')) ?>" target="_blank" rel="noopener" class="small">Lihat ukuran penuh</a>
+                                    </div>
+                                </div>
+                            <?php elseif ($isEdit): ?>
+                                <div class="alert alert-warning py-2 mt-3 mb-0">
+                                    Setoran lama ini belum memiliki bukti foto. Anda dapat menambahkannya sekarang.
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
                         <div class="col-12">
                             <label for="keterangan" class="form-label">Keterangan</label>
                             <textarea class="form-control" id="keterangan" name="keterangan" rows="3" maxlength="255" placeholder="Opsional"><?= esc((string) $keterangan) ?></textarea>
@@ -63,7 +103,7 @@ $formAction = $isEdit
                         <?php if ($isEdit): ?>
                             Pastikan perubahan memang merupakan koreksi data. Nominal setoran ikut menentukan saldo kas berjalan.
                         <?php else: ?>
-                            Pastikan nominal dan periode sama dengan form fisik yang telah diserahkan. Setelah disimpan, transaksi masuk perhitungan saldo kas.
+                            Pastikan nominal, periode, dan bukti foto sesuai dengan penyerahan dana yang benar-benar sudah dilakukan.
                         <?php endif; ?>
                     </div>
 
