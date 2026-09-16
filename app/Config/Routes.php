@@ -30,6 +30,7 @@ $routes->group('', ['filter' => 'operator'], static function (RouteCollection $r
     $routes->post('kategori-pengeluaran/(:num)/arsipkan', 'KategoriPengeluaran::arsipkan/$1');
 
     $routes->get('penjual', 'Penjual::index');
+    $routes->get('penjual/export', 'Penjual::export');
     $routes->get('penjual/tambah', 'Penjual::create');
     $routes->post('penjual/simpan', 'Penjual::store');
     $routes->get('penjual/(:num)/edit', 'Penjual::edit/$1');
