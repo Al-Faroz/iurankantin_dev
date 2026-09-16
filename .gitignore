@@ -1,4 +1,3 @@
-
 /vendor/
 /writable/cache/*
 !/writable/cache/index.html
@@ -16,10 +15,13 @@
 /uploads/*
 !/uploads/.htaccess
 !/uploads/bukti_nota/
+/uploads/bukti_nota/*
 !/uploads/bukti_nota/.htaccess
 !/uploads/bukti_setoran/
+/uploads/bukti_setoran/*
 !/uploads/bukti_setoran/.htaccess
 !/uploads/branding/
+/uploads/branding/*
 
 # OS / editor
 .DS_Store
