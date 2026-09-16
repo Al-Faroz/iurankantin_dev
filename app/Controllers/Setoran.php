@@ -4,9 +4,11 @@ namespace App\Controllers;
 
 use App\Models\SetoranPimpinanModel;
 use App\Models\SettingModel;
+use App\Services\BuktiSetoranService;
 use App\Services\PdfService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 use CodeIgniter\I18n\Time;
+use RuntimeException;
 
 class Setoran extends BaseController
 {
@@ -102,11 +104,30 @@ class Setoran extends BaseController
             return redirect()->back()->withInput()->with('error', 'Periode awal tidak boleh melewati periode akhir.');
         }
 
-        $payload['id_operator'] = (int) session()->get('id_user');
-        $payload['created_at'] = date('Y-m-d H:i:s');
-        $this->model->insert($payload);
+        $file = $this->request->getFile('bukti_setoran');
+        if ($file === null || $file->getError() === UPLOAD_ERR_NO_FILE) {
+            return redirect()->back()->withInput()->with('error', 'Foto bukti setoran wajib diunggah untuk setoran resmi baru.');
+        }
 
-        return redirect()->to($this->baseUrl . '/setoran')->with('success', 'Setoran resmi berhasil dicatat ke database.');
+        $buktiPath = null;
+        try {
+            $buktiPath = (new BuktiSetoranService())->simpan($file);
+            $payload['bukti_setoran'] = $buktiPath;
+            $payload['id_operator'] = (int) session()->get('id_user');
+            $payload['created_at'] = date('Y-m-d H:i:s');
+
+            if ($this->model->insert($payload) === false) {
+                throw new RuntimeException('Gagal menyimpan setoran resmi ke database.');
+            }
+        } catch (RuntimeException $e) {
+            if ($buktiPath !== null) {
+                $this->hapusBukti($buktiPath);
+            }
+
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
+
+        return redirect()->to($this->baseUrl . '/setoran')->with('success', 'Setoran resmi dan bukti foto berhasil dicatat.');
     }
 
     public function edit(int $id)
@@ -125,7 +146,8 @@ class Setoran extends BaseController
 
     public function update(int $id)
     {
-        if ($this->model->find($id) === null) {
+        $setoranLama = $this->model->find($id);
+        if ($setoranLama === null) {
             throw PageNotFoundException::forPageNotFound('Setoran pimpinan tidak ditemukan.');
         }
 
@@ -138,20 +160,47 @@ class Setoran extends BaseController
             return redirect()->back()->withInput()->with('error', 'Periode awal tidak boleh melewati periode akhir.');
         }
 
-        // id_operator dan created_at dipertahankan sebagai jejak pencatat awal.
-        $this->model->update($id, $payload);
+        $buktiBaru = null;
+        $file = $this->request->getFile('bukti_setoran');
+
+        try {
+            if ($file !== null && $file->getError() !== UPLOAD_ERR_NO_FILE) {
+                $buktiBaru = (new BuktiSetoranService())->simpan($file);
+                $payload['bukti_setoran'] = $buktiBaru;
+            }
+
+            // id_operator dan created_at dipertahankan sebagai jejak pencatat awal.
+            if ($this->model->update($id, $payload) === false) {
+                throw new RuntimeException('Gagal memperbarui setoran pimpinan.');
+            }
+
+            if ($buktiBaru !== null && ! empty($setoranLama['bukti_setoran'])) {
+                $this->hapusBukti((string) $setoranLama['bukti_setoran']);
+            }
+        } catch (RuntimeException $e) {
+            if ($buktiBaru !== null) {
+                $this->hapusBukti($buktiBaru);
+            }
+
+            return redirect()->back()->withInput()->with('error', $e->getMessage());
+        }
 
         return redirect()->to($this->baseUrl . '/setoran')->with('success', 'Setoran pimpinan berhasil diperbarui.');
     }
 
     public function hapus(int $id)
     {
-        if ($this->model->find($id) === null) {
+        $setoran = $this->model->find($id);
+        if ($setoran === null) {
             throw PageNotFoundException::forPageNotFound('Setoran pimpinan tidak ditemukan.');
         }
 
         // Setoran merupakan transaksi. Koreksi data salah menggunakan hard delete sesuai kebutuhan aplikasi.
         $this->model->delete($id, true);
+
+        if (! empty($setoran['bukti_setoran'])) {
+            $this->hapusBukti((string) $setoran['bukti_setoran']);
+        }
 
         return redirect()->to($this->baseUrl . '/setoran')->with('success', 'Setoran pimpinan berhasil dihapus permanen.');
     }
@@ -205,5 +254,17 @@ class Setoran extends BaseController
         }
 
         return $rules;
+    }
+
+    private function hapusBukti(string $relativePath): void
+    {
+        if (! str_starts_with($relativePath, 'uploads/bukti_setoran/')) {
+            return;
+        }
+
+        $path = ROOTPATH . $relativePath;
+        if (is_file($path)) {
+            @unlink($path);
+        }
     }
 }
