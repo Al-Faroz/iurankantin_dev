@@ -26,9 +26,11 @@ class BuktiNotaService
             throw new RuntimeException('Ukuran file bukti nota maksimal 10 MB sebelum kompresi.');
         }
 
-        $directory = ROOTPATH . 'uploads/bukti_nota';
+        // Bukti transaksi baru disimpan di writable agar tidak dapat diakses langsung
+        // melalui URL web. File hanya disajikan lewat route Operator terautentikasi.
+        $directory = WRITEPATH . 'uploads/bukti_nota';
         if (! is_dir($directory) && ! mkdir($directory, 0755, true) && ! is_dir($directory)) {
-            throw new RuntimeException('Folder upload bukti nota tidak dapat dibuat.');
+            throw new RuntimeException('Folder privat bukti nota tidak dapat dibuat.');
         }
 
         $manager = new ImageManager(new Driver());
@@ -51,6 +53,6 @@ class BuktiNotaService
             throw new RuntimeException('Foto nota masih lebih dari 500 KB setelah kompresi. Gunakan foto dengan resolusi lebih kecil.');
         }
 
-        return 'uploads/bukti_nota/' . $filename;
+        return 'writable/uploads/bukti_nota/' . $filename;
     }
 }
