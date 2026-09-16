@@ -5,6 +5,7 @@ $oldBayar = is_array($oldBayar) ? $oldBayar : [];
 $oldNominal = old('nominal');
 $oldNominal = is_array($oldNominal) ? $oldNominal : [];
 $tanggal = old('tanggal') ?: $tanggalDefault;
+$penjualSudahBayar = array_flip(array_map('intval', $penjualSudahBayar ?? []));
 ?>
 <?= $this->include('layout_header') ?>
 <?= $this->include('layout_flash') ?>
@@ -13,6 +14,7 @@ $tanggal = old('tanggal') ?: $tanggalDefault;
     .bulk-table .seller-name { min-width: 220px; }
     .bulk-table .nominal-input { min-width: 150px; }
     .bulk-sticky { position: sticky; bottom: 0; z-index: 10; }
+    .bulk-table tr.iuran-recorded { opacity: .72; }
 
     @media (max-width: 767.98px) {
         .bulk-table thead { display: none; }
@@ -50,6 +52,7 @@ $tanggal = old('tanggal') ?: $tanggalDefault;
         .bulk-table .nominal-input .form-control { min-width: 0; padding-left: .45rem; padding-right: .35rem; }
         .bulk-table .form-check-label { display: none; }
         .bulk-table .form-check { padding-left: 2.35rem; }
+        .bulk-table .recorded-label { font-size: .68rem; }
     }
 </style>
 
@@ -61,11 +64,12 @@ $tanggal = old('tanggal') ?: $tanggalDefault;
             <div class="row align-items-end g-3">
                 <div class="col-12 col-md-4">
                     <label for="tanggal" class="form-label">Tanggal Iuran <span class="text-danger">*</span></label>
-                    <input type="date" class="form-control" id="tanggal" name="tanggal" value="<?= esc((string) $tanggal) ?>" required>
+                    <input type="date" class="form-control" id="tanggal" name="tanggal" value="<?= esc((string) $tanggal) ?>" data-loaded-date="<?= esc((string) $tanggalDefault) ?>" required>
+                    <div class="form-text">Mengganti tanggal akan memuat ulang status pembayaran pada tanggal tersebut.</div>
                 </div>
                 <div class="col-12 col-md-8">
                     <div class="alert alert-primary mb-0 py-2">
-                        Centang <strong>Bayar</strong> hanya untuk penjual yang membayar hari ini. Nominal terisi otomatis dari golongan dan tetap bisa diubah.
+                        Centang <strong>Bayar</strong> hanya untuk penjual yang membayar. Penjual yang sudah tercatat pada tanggal ini dikunci agar tidak tersimpan dua kali.
                     </div>
                 </div>
             </div>
@@ -73,9 +77,16 @@ $tanggal = old('tanggal') ?: $tanggalDefault;
     </div>
 
     <div class="card">
-        <div class="card-header">
-            <h5 class="mb-1">Daftar Penjual Aktif</h5>
-            <p class="text-body-secondary mb-0">Urutan: nominal golongan tertinggi, lalu nama penjual A–Z.</p>
+        <div class="card-header d-flex flex-column flex-sm-row justify-content-between gap-2">
+            <div>
+                <h5 class="mb-1">Daftar Penjual Aktif</h5>
+                <p class="text-body-secondary mb-0">Urutan: nominal golongan tertinggi, lalu nama penjual A–Z.</p>
+            </div>
+            <?php if ($penjualSudahBayar): ?>
+                <div class="align-self-sm-center">
+                    <span class="badge bg-label-success"><?= count($penjualSudahBayar) ?> sudah tercatat</span>
+                </div>
+            <?php endif; ?>
         </div>
 
         <?php if ($penjual): ?>
@@ -92,7 +103,8 @@ $tanggal = old('tanggal') ?: $tanggalDefault;
                     <?php foreach ($penjual as $row): ?>
                         <?php
                         $id = (int) $row['id_penjual'];
-                        $checked = array_key_exists((string) $id, $oldBayar) || array_key_exists($id, $oldBayar);
+                        $sudahBayar = isset($penjualSudahBayar[$id]);
+                        $checked = ! $sudahBayar && (array_key_exists((string) $id, $oldBayar) || array_key_exists($id, $oldBayar));
                         $nominalValue = $oldNominal[$id] ?? $oldNominal[(string) $id] ?? $row['nominal_iuran'];
                         $namaGolongan = trim((string) $row['nama_golongan']);
                         $golonganSingkat = $namaGolongan;
@@ -103,12 +115,18 @@ $tanggal = old('tanggal') ?: $tanggalDefault;
                             }
                         }
                         ?>
-                        <tr>
+                        <tr class="<?= $sudahBayar ? 'iuran-recorded' : '' ?>">
                             <td data-label="Bayar">
-                                <div class="form-check form-switch mb-0">
-                                    <input class="form-check-input iuran-check" type="checkbox" name="bayar[<?= $id ?>]" value="1" id="bayar-<?= $id ?>" <?= $checked ? 'checked' : '' ?>>
-                                    <label class="form-check-label" for="bayar-<?= $id ?>">Bayar</label>
-                                </div>
+                                <?php if ($sudahBayar): ?>
+                                    <span class="badge bg-label-success recorded-label" title="Iuran sudah tercatat pada tanggal ini">
+                                        <i class="icon-base bx bx-check me-1"></i>Tercatat
+                                    </span>
+                                <?php else: ?>
+                                    <div class="form-check form-switch mb-0">
+                                        <input class="form-check-input iuran-check" type="checkbox" name="bayar[<?= $id ?>]" value="1" id="bayar-<?= $id ?>" <?= $checked ? 'checked' : '' ?>>
+                                        <label class="form-check-label" for="bayar-<?= $id ?>">Bayar</label>
+                                    </div>
+                                <?php endif; ?>
                             </td>
                             <td data-label="Penjual" class="seller-name">
                                 <div class="seller-line">
@@ -120,7 +138,7 @@ $tanggal = old('tanggal') ?: $tanggalDefault;
                             <td data-label="Nominal">
                                 <div class="input-group nominal-input">
                                     <span class="input-group-text">Rp</span>
-                                    <input type="number" class="form-control iuran-nominal" name="nominal[<?= $id ?>]" value="<?= esc((string) $nominalValue) ?>" min="1" step="1" <?= $checked ? '' : 'disabled' ?>>
+                                    <input type="number" class="form-control iuran-nominal" name="nominal[<?= $id ?>]" value="<?= esc((string) $nominalValue) ?>" min="1" step="1" <?= ($checked && ! $sudahBayar) ? '' : 'disabled' ?>>
                                 </div>
                             </td>
                         </tr>
@@ -152,6 +170,7 @@ $tanggal = old('tanggal') ?: $tanggalDefault;
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+    const dateInput = document.getElementById('tanggal');
     const checks = document.querySelectorAll('.iuran-check');
     const countEl = document.getElementById('selected-count');
     const totalEl = document.getElementById('selected-total');
@@ -190,6 +209,18 @@ document.addEventListener('DOMContentLoaded', function () {
         nominal.addEventListener('input', recalc);
         sync();
     });
+
+    if (dateInput) {
+        dateInput.addEventListener('change', function () {
+            const value = dateInput.value;
+            const loadedDate = dateInput.dataset.loadedDate || '';
+            if (!value || value === loadedDate) {
+                return;
+            }
+
+            window.location.assign('<?= esc($baseUrl, 'js') ?>/iuran?tanggal=' + encodeURIComponent(value));
+        });
+    }
 });
 </script>
 
