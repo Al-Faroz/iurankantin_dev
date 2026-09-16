@@ -12,9 +12,14 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
             <h5 class="mb-1">Daftar Penjual Kantin</h5>
             <p class="text-body-secondary mb-0">Data pedagang yang terdaftar di lingkungan kantin madrasah.</p>
         </div>
-        <a href="<?= esc($baseUrl) ?>/penjual/tambah" class="btn btn-primary">
-            <i class="icon-base bx bx-plus me-1"></i>Tambah Penjual
-        </a>
+        <div class="d-flex flex-column flex-sm-row gap-2">
+            <a href="<?= esc($baseUrl) ?>/penjual/export" class="btn btn-outline-success">
+                <i class="icon-base bx bx-spreadsheet me-1"></i>Export Excel
+            </a>
+            <a href="<?= esc($baseUrl) ?>/penjual/tambah" class="btn btn-primary">
+                <i class="icon-base bx bx-plus me-1"></i>Tambah Penjual
+            </a>
+        </div>
     </div>
     <div class="card-datatable table-responsive">
         <table class="table" id="table-penjual">
