@@ -17,6 +17,7 @@ $buktiUrl = $isEdit && $buktiSetoran
 $formAction = $isEdit
     ? $baseUrl . '/setoran/' . (int) $setoran['id_setoran'] . '/update'
     : $baseUrl . '/setoran/simpan';
+$saldoTersedia = (float) ($saldoTersedia ?? 0);
 ?>
 <?= $this->include('layout_header') ?>
 <?= $this->include('layout_flash') ?>
@@ -35,12 +36,19 @@ $formAction = $isEdit
                 </p>
             </div>
             <div class="card-body">
-                <form action="<?= esc($formAction) ?>" method="post" enctype="multipart/form-data" id="form-setoran-resmi">
+                <div class="alert alert-info py-2 mb-4">
+                    <?= $isEdit ? 'Saldo tersedia sebelum setoran ini' : 'Saldo kas tersedia saat ini' ?>:
+                    <strong>Rp <?= number_format($saldoTersedia, 0, ',', '.') ?></strong>.
+                    Jika nominal setoran melebihi saldo, aplikasi akan memberi warning tetapi tetap dapat disimpan setelah konfirmasi.
+                </div>
+
+                <form action="<?= esc($formAction) ?>" method="post" enctype="multipart/form-data" id="form-setoran-resmi" data-saldo-tersedia="<?= esc((string) $saldoTersedia) ?>">
                     <?= csrf_field() ?>
                     <div class="row g-4">
                         <div class="col-12 col-md-6">
                             <label for="tanggal_form" class="form-label">Tanggal Form <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control" id="tanggal_form" name="tanggal_form" value="<?= esc((string) $tanggalForm) ?>" required>
+                            <input type="date" class="form-control" id="tanggal_form" name="tanggal_form" value="<?= esc((string) $tanggalForm) ?>" max="<?= esc((string) $tanggalMaks) ?>" required>
+                            <div class="form-text">Tanggal Setoran Resmi tidak boleh melebihi hari ini.</div>
                         </div>
                         <div class="col-12 col-md-6">
                             <label for="nominal" class="form-label">Nominal Setoran <span class="text-danger">*</span></label>
@@ -49,6 +57,14 @@ $formAction = $isEdit
                                 <input type="number" class="form-control" id="nominal" name="nominal" value="<?= esc((string) $nominal) ?>" min="1" step="1" required>
                             </div>
                         </div>
+
+                        <div class="col-12 d-none" id="saldo-warning">
+                            <div class="alert alert-warning mb-0">
+                                <div class="fw-semibold"><i class="icon-base bx bx-error me-1"></i>Nominal setoran melebihi saldo kas tersedia.</div>
+                                <div class="small mt-1" id="saldo-warning-detail"></div>
+                            </div>
+                        </div>
+
                         <div class="col-12 col-md-6">
                             <label for="periode_awal" class="form-label">Periode Awal <span class="text-danger">*</span></label>
                             <input type="date" class="form-control" id="periode_awal" name="periode_awal" value="<?= esc((string) $periodeAwal) ?>" required>
@@ -121,5 +137,77 @@ $formAction = $isEdit
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.getElementById('form-setoran-resmi');
+    const nominalInput = document.getElementById('nominal');
+    const warningBox = document.getElementById('saldo-warning');
+    const warningDetail = document.getElementById('saldo-warning-detail');
+
+    if (!form || !nominalInput) {
+        return;
+    }
+
+    const saldoTersedia = Number(form.dataset.saldoTersedia || 0);
+    const rupiah = new Intl.NumberFormat('id-ID');
+
+    function exceedsBalance() {
+        return Number(nominalInput.value || 0) > saldoTersedia;
+    }
+
+    function syncWarning() {
+        const nominal = Number(nominalInput.value || 0);
+        const over = nominal > saldoTersedia;
+
+        if (warningBox) {
+            warningBox.classList.toggle('d-none', !over);
+        }
+        if (warningDetail && over) {
+            warningDetail.textContent = 'Setoran Rp ' + rupiah.format(nominal)
+                + ' melebihi saldo tersedia Rp ' + rupiah.format(saldoTersedia)
+                + '. Jika tetap disimpan, saldo kas akan menjadi negatif.';
+        }
+    }
+
+    nominalInput.addEventListener('input', syncWarning);
+    syncWarning();
+
+    form.addEventListener('submit', function (event) {
+        if (!exceedsBalance() || form.dataset.saldoConfirmed === '1') {
+            return;
+        }
+
+        event.preventDefault();
+        const nominal = Number(nominalInput.value || 0);
+        const text = 'Nominal setoran Rp ' + rupiah.format(nominal)
+            + ' melebihi saldo tersedia Rp ' + rupiah.format(saldoTersedia)
+            + '. Setoran tetap boleh disimpan dan akan membuat saldo kas negatif. Lanjutkan?';
+
+        if (!window.Swal) {
+            if (window.confirm(text)) {
+                form.dataset.saldoConfirmed = '1';
+                form.requestSubmit();
+            }
+            return;
+        }
+
+        Swal.fire({
+            title: 'Setoran melebihi saldo',
+            text: text,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonText: 'Tetap simpan',
+            cancelButtonText: 'Batal',
+            reverseButtons: true
+        }).then(function (result) {
+            if (result.isConfirmed) {
+                form.dataset.saldoConfirmed = '1';
+                form.requestSubmit();
+            }
+        });
+    });
+});
+</script>
 
 <?= $this->include('layout_footer') ?>
