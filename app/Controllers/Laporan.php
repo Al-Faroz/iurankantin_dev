@@ -165,10 +165,10 @@ class Laporan extends BaseController
         $awal = (string) ($this->request->getGet('tanggal_awal') ?: $awalDefault);
         $akhir = (string) ($this->request->getGet('tanggal_akhir') ?: $akhirDefault);
 
-        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $awal)) {
+        if (! $this->isValidDate($awal)) {
             $awal = $awalDefault;
         }
-        if (! preg_match('/^\d{4}-\d{2}-\d{2}$/', $akhir)) {
+        if (! $this->isValidDate($akhir)) {
             $akhir = $akhirDefault;
         }
         if ($awal > $akhir) {
@@ -194,6 +194,13 @@ class Laporan extends BaseController
         $akhir = date('d-m-Y', strtotime((string) $filter['tanggal_akhir']));
 
         return $awal . '_sd_' . $akhir;
+    }
+
+    private function isValidDate(string $value): bool
+    {
+        $date = \DateTimeImmutable::createFromFormat('!Y-m-d', $value, new \DateTimeZone('Asia/Jakarta'));
+
+        return $date !== false && $date->format('Y-m-d') === $value;
     }
 
     private function penjualOptions(): array
