@@ -2,228 +2,209 @@
 
 **Tanggal audit:** 16 September 2026
 
-Dokumen ini memisahkan hasil audit teknis dari Dokumen Acuan. Dokumen Acuan berfungsi sebagai baseline aplikasi; file ini mencatat masalah yang ditemukan, perbaikan yang sudah dilakukan, risiko yang masih tersisa, dan keputusan operasional yang masih diperlukan.
+Dokumen ini mencatat hasil audit teknis aplikasi, perbaikan yang sudah diterapkan, serta area yang masih layak dipantau. Dokumen Acuan tetap menjadi baseline utama aturan aplikasi.
 
-## 1. Ruang Lingkup Audit
+## 1. Area yang Diaudit
 
-Area yang diperiksa meliputi routing/hak akses, login/session/CSRF, master data, seluruh transaksi, Dashboard, Laporan/Excel, Kartu/QR, upload file, migration/schema, `.htaccess`, dependency Composer, shared hosting, CLI `spark`, CI, dan automated test.
+Audit mencakup:
 
-## 2. Temuan yang Sudah Diperbaiki
+- routing dan hak akses;
+- login, session, CSRF, secure headers;
+- master data;
+- Iuran;
+- Pengeluaran;
+- Setoran;
+- Koreksi Transaksi;
+- Dashboard;
+- Laporan dan Excel;
+- Kartu/QR/scanner;
+- upload file;
+- migration/schema;
+- shared hosting;
+- dependency Composer;
+- GitHub Actions dan PHPUnit.
 
-### A. Session lama masih mempercayai role/status login
+## 2. Temuan yang Sudah Ditutup
 
-Request terproteksi sekarang memvalidasi `id_user`, status aktif, dan role terhadap database. Perubahan role/nonaktif berlaku tanpa menunggu session kedaluwarsa.
+### A. Session lama masih mempercayai role/status
 
-**Status:** selesai.
-
-### B. Lifecycle file bukti tidak konsisten dengan database
-
-Delete Pengeluaran/Setoran dan Koreksi sekarang memeriksa hasil database sebelum membersihkan file. Upload yang gagal disimpan ke database juga dibersihkan.
-
-**Status:** selesai.
-
-### C. Branding lama dapat hilang bila update Setting gagal
-
-File lama baru dibersihkan setelah database berhasil menyimpan path pengganti.
-
-**Status:** selesai.
-
-### D. Formula injection export Excel
-
-String diekspor menggunakan `TYPE_STRING`; data numerik tetap numerik. Regression test Excel memastikan teks seperti `=2+2` dan nomor HP berawalan nol tetap literal.
+Role dan status user divalidasi kembali terhadap database pada request terproteksi.
 
 **Status:** selesai.
 
-### E. Validasi tanggal filter hanya memeriksa pola
+### B. Lifecycle file bukti dapat tidak konsisten dengan database
 
-Filter Laporan/Koreksi sekarang memastikan tanggal kalender benar-benar valid.
-
-**Status:** selesai.
-
-### F. CRUD master dapat memberi pesan sukses saat write gagal
-
-Write Penjual, Golongan, Kategori, User, serta generate kode kartu sekarang memeriksa hasil database.
+File baru dibersihkan bila insert gagal. Delete Pengeluaran/Setoran baru menghapus file setelah delete database berhasil.
 
 **Status:** selesai.
 
-### G. Duplikasi Iuran Penjual pada tanggal yang sama
+### C. Branding lama dapat hilang ketika update database gagal
 
-Aturan bisnis: **satu Penjual maksimal satu Iuran per tanggal**.
+File lama baru dihapus setelah path baru berhasil tersimpan.
+
+**Status:** selesai.
+
+### D. Formula injection Excel
+
+String ditulis sebagai literal `TYPE_STRING`; nilai numerik tetap numerik.
+
+**Status:** selesai.
+
+### E. Filter tanggal hanya memeriksa format
+
+Tanggal kalender divalidasi dengan ketat.
+
+**Status:** selesai.
+
+### F. CRUD master dapat menampilkan sukses ketika write gagal
+
+Write master dan generate kode kartu sekarang memeriksa hasil database.
+
+**Status:** selesai.
+
+### G. Duplicate Iuran per Penjual per tanggal
+
+Baseline sekarang menetapkan satu Penjual maksimal satu Iuran per tanggal.
 
 Proteksi:
 
-1. UI menandai Penjual yang sudah `Tercatat`;
-2. service server menolak duplikat;
-3. unique index `uniq_iuran_penjual_tanggal`;
-4. migration `100011` dan SQL manual production.
+1. UI menandai `Tercatat`;
+2. server menolak duplikasi;
+3. unique index database `uniq_iuran_penjual_tanggal`.
 
-**Status:** source selesai; production wajib memastikan unique index sudah diterapkan setelah data historis bersih.
+**Status:** selesai.
 
-### H. Histori Golongan berubah ketika master Penjual berubah
+### H. Histori Golongan berubah mengikuti master saat ini
 
-`transaksi_iuran` sekarang menyimpan `id_golongan_snapshot`, `nama_golongan_snapshot`, dan `nominal_golongan_snapshot`. Laporan dan Koreksi memakai snapshot tersebut.
+Transaksi Iuran menyimpan snapshot ID, Nama, dan nominal default Golongan.
 
-Migration `100012` dan `docs/SQL_100012_GOLONGAN_SNAPSHOT_IURAN.sql` tersedia. Data existing di-backfill dari kondisi Golongan pada saat SQL/migration dijalankan.
+**Status:** selesai.
 
-**Status:** selesai; production wajib menjalankan SQL snapshot sebelum source yang membaca field tersebut aktif.
+### I. Bukti transaksi dapat diakses dengan URL langsung
 
-### I. Bukti transaksi dapat diakses dengan URL file langsung
-
-Perbaikan:
-
-1. upload bukti Nota/Setoran baru disimpan di `writable/uploads/...`;
-2. tombol/thumbnail bukti memakai route Operator terautentikasi;
-3. response menggunakan cache privat/no-store dan `nosniff`;
-4. resolver storage membatasi prefix dan menolak path traversal;
-5. file legacy tetap kompatibel tetapi HTTP langsung diblokir;
-6. delete/koreksi dapat membersihkan path legacy maupun privat;
-7. regression test memverifikasi resolver private/legacy, delete, dan penolakan path traversal.
+Upload baru masuk `writable/uploads`. File legacy tetap kompatibel tetapi URL direct diblokir. Akses bukti memakai route Operator.
 
 **Status:** selesai.
 
 ### J. `bukti_setoran` tidak tersedia pada fresh install migration-only
 
-Migration idempotent `100013_AddBuktiSetoranToSetoranPimpinan` sudah ditambahkan. Hosting existing tetap dapat menggunakan SQL phpMyAdmin tanpa konflik.
+Migration idempotent `100013` sudah tersedia.
 
 **Status:** selesai.
 
-### K. Download Kartu GET dapat memutasi database
+### K. Download Kartu GET dapat membuat state baru
 
-Sebelumnya route download satuan memanggil `ensureCodes()` sehingga request GET berpotensi membuat kode kartu.
-
-Perbaikan:
-
-- download JPG/ZIP satuan melalui GET sekarang hanya membaca kartu yang sudah memiliki kode;
-- pembuatan/regenerate kode tetap POST;
-- download massal diubah menjadi POST + CSRF karena proses tersebut memang boleh membuat kode untuk Penjual aktif yang belum memiliki kartu.
+Download massal yang dapat memicu pembuatan kode dipindah ke POST + CSRF. Download individual tidak membuat kode baru secara diam-diam.
 
 **Status:** selesai.
 
 ### L. Upload branding hanya dibatasi ukuran file
 
-Gambar kecil secara byte tetapi sangat besar secara resolusi dapat menghabiskan memori GD/Intervention saat render.
-
-Perbaikan: upload branding sekarang dibatasi maksimal **6000 px per sisi dan 24 megapiksel**, selain batas file 5 MB.
+Sekarang dibatasi juga maksimal 6000 px per sisi dan 24 megapiksel.
 
 **Status:** selesai.
 
-### M. `spark` masih mengarah ke folder `public/` yang sudah tidak ada
+### M. `spark` masih mengarah ke folder `public/`
 
-Karena front controller dipindahkan ke root, `php spark routes` sebelumnya tetap berhasil tetapi selalu menghasilkan warning `chdir(): No such file or directory`.
-
-Perbaikan: `spark` sekarang menggunakan root project sebagai `FCPATH` dan memuat `app/Config/Paths.php` langsung dari root, sama seperti `index.php`.
+CLI sudah disesuaikan dengan front controller root sehingga `php spark routes` tidak lagi menghasilkan warning `chdir()`.
 
 **Status:** selesai.
 
-### N. Automated test tidak dijalankan oleh CI
+### N. PHPUnit belum menjadi bagian CI
 
-CI sekarang menjalankan PHPUnit menggunakan SQLite test connection yang terisolasi dan tidak menyentuh database production. Test baru mencakup protected proof storage dan formula-safe Excel export.
-
-Konfigurasi coverage bawaan yang tidak digunakan dihapus agar `failOnWarning=true` tetap bermakna dan tidak gagal hanya karena coverage driver sengaja tidak dipasang.
-
-**Status:** selesai; coverage bisnis masih perlu terus diperluas.
-
-### O. Dependency security audit belum otomatis
-
-GitHub Actions sekarang menjalankan `composer audit --locked --no-interaction`. Advisory pada dependency terkunci akan menggagalkan CI.
+PHPUnit sekarang dijalankan di GitHub Actions. Test contoh SQLite bawaan AppStarter yang tidak menguji aplikasi sudah dihapus dari baseline.
 
 **Status:** selesai.
 
-## 3. Temuan yang Masih Membutuhkan Keputusan Operasional/Bisnis
+### O. Dependency belum diaudit otomatis
 
-### 3.1 Tanggal transaksi masa depan masih diizinkan
+`composer audit --locked` sekarang blocking di CI.
 
-Input Iuran, Pengeluaran, dan Setoran memvalidasi format tetapi belum menolak tanggal setelah hari ini.
+**Status:** selesai.
 
-**Dampak:** Saldo Kas dapat memasukkan transaksi masa depan sementara beberapa card/grafik hanya menghitung sampai hari ini.
+### P. Tanggal transaksi masa depan masih diizinkan
 
-**Keputusan yang dibutuhkan:** apakah seluruh transaksi keuangan harus maksimal tanggal hari ini, atau ada kebutuhan mencatat tanggal masa depan.
+Keputusan operasional: **tanggal transaksi masa depan dilarang**.
 
-### 3.2 Setoran dapat melebihi saldo kas
+Implementasi:
 
-Tidak ada validasi yang membatasi Setoran Resmi terhadap saldo kas tersedia.
+- Input Iuran membatasi tanggal sampai hari ini;
+- Pengeluaran membatasi tanggal sampai hari ini;
+- Form Setoran dan Setoran Resmi membatasi tanggal sampai hari ini;
+- server memvalidasi ulang sehingga manipulasi request tetap ditolak.
 
-**Dampak:** salah input dapat membuat saldo negatif.
+**Status:** selesai.
 
-**Keputusan yang dibutuhkan:** blokir keras bila nominal > saldo, atau izinkan dengan warning/konfirmasi.
+### Q. Setoran dapat melebihi saldo tanpa peringatan
 
-### 3.3 Belum ada audit trail perubahan transaksi keuangan
+Keputusan operasional: **tidak diblokir, tetapi wajib warning**.
 
-Edit Setoran dan hard delete melalui Koreksi belum memiliki tabel log yang menyimpan nilai sebelum/sesudah, user, waktu, dan alasan koreksi.
+Implementasi:
 
-**Keputusan yang dibutuhkan:** apakah jejak audit formal diperlukan untuk pertanggungjawaban jangka panjang.
+- form menampilkan saldo tersedia;
+- warning tampil saat nominal melebihi saldo;
+- submit meminta konfirmasi SweetAlert;
+- Operator dapat memilih Tetap Simpan;
+- audit log menandai `melebihi_saldo`;
+- Edit membandingkan terhadap saldo sebelum transaksi yang sedang diedit.
 
-## 4. Quality Assurance dan Automated Test
+**Status:** selesai sesuai kebijakan.
 
-GitHub Actions sekarang menjalankan:
+### R. Belum ada jejak koreksi transaksi
 
-- `composer validate`;
-- `composer install`;
-- `composer audit --locked`;
-- PHP syntax lint untuk `app/` dan `tests/`;
+Keputusan operasional: audit trail sederhana tanpa mengubah database.
+
+Implementasi menggunakan:
+
+```text
+writable/logs/audit-transaksi-YYYY-MM.log
+```
+
+Setiap baris berformat JSON dan memuat waktu, aksi, jenis transaksi, ID transaksi, operator, IP, dan ringkasan data.
+
+Aksi yang dicatat mencakup create Iuran/Pengeluaran/Setoran, update Setoran, delete Setoran, dan seluruh hard delete melalui Koreksi Transaksi.
+
+**Status:** selesai.
+
+## 3. Quality Assurance Saat Ini
+
+GitHub Actions menjalankan:
+
+- Composer validate;
+- Composer install;
+- Composer security audit;
+- PHP syntax lint;
 - JavaScript syntax lint;
-- `php spark routes`;
+- route compilation;
 - PHPUnit.
 
-Regression test saat audit mencakup antara lain:
+Regression test aplikasi saat ini mencakup:
 
-- resolusi bukti privat dan legacy;
-- penolakan path traversal bukti;
-- cleanup bukti privat;
-- Excel menjaga formula-looking text sebagai string;
-- Excel menjaga nomor HP berawalan nol sebagai string;
-- test framework/database starter yang berjalan pada SQLite terisolasi.
+- private/legacy proof resolver;
+- proteksi path traversal;
+- Excel literal/formula-safe;
+- audit trail file-based.
 
-Coverage bisnis yang disarankan berikutnya:
+## 4. Area yang Masih Layak Ditingkatkan
 
-- autentikasi dan role Operator/Pimpinan;
-- akun Nonaktif kehilangan akses;
-- duplicate Iuran di service + database;
-- snapshot Golongan setelah master berubah;
-- Input Iuran batch/rollback;
-- saldo dan Rekap Kas;
-- protected proof controller authorization;
-- QR publik hanya data minimum.
+Tidak ada temuan audit kritis yang saat ini diketahui belum ditangani. Peningkatan berikut bersifat hardening/quality, bukan blocker operasional:
 
-## 5. Dependency dan Supply Chain
+1. tambah automated test untuk autentikasi/role;
+2. tambah test duplicate Iuran dan snapshot Golongan dengan database test terisolasi;
+3. tambah test saldo/Rekap Kas;
+4. tambah retensi/rotasi khusus audit log bila volume transaksi membesar;
+5. dokumentasikan prosedur review audit log berkala;
+6. pertimbangkan monitoring kapasitas `writable/` di hosting.
 
-Dependency utama saat audit antara lain CodeIgniter 4.7.4, Dompdf 3.1.6, PhpSpreadsheet 5.9.0, dan Endroid QR Code 6.0.9.
+## 5. Risiko Operasional yang Tetap Harus Dipahami
 
-`composer audit --locked` sekarang merupakan pemeriksaan CI blocking. Paket deployment production tetap disarankan dibuat dari `composer.lock`, bukan update dependency spontan di hosting.
+- Setoran > saldo **memang diizinkan oleh kebijakan** setelah warning dan dapat membuat saldo negatif.
+- Audit trail berbasis file wajib ikut backup; jika folder `writable/logs/` hilang, jejak audit tidak dapat dipulihkan dari database.
+- Data histori Golongan sebelum snapshot dibuat tidak dapat direkonstruksi sempurna bila Penjual pernah pindah Golongan sebelum backfill.
+- File bukti legacy tetap perlu dipertahankan selama record database masih menunjuk ke file tersebut.
 
-## 6. Area yang Sudah Memadai
+## 6. Kesimpulan Audit
 
-- explicit route dan Auto Routing nonaktif;
-- POST + CSRF untuk mutasi;
-- role Operator/Pimpinan di route dan UI;
-- throttling login;
-- database session;
-- password hashing;
-- DBDebug production nonaktif;
-- Secure Headers global;
-- proteksi source/configuration;
-- bukti transaksi privat;
-- Dompdf remote/PHP execution nonaktif;
-- scanner QR membatasi origin/path;
-- upload gambar dikompresi;
-- branding dibatasi ukuran byte dan dimensi;
-- Setoran dua tahap;
-- Rekap Kas saldo awal/berjalan;
-- export berperiode dan formula-safe;
-- duplicate Iuran terlindungi berlapis;
-- snapshot Golongan historis;
-- migration fresh install semakin konsisten;
-- GET download kartu tidak lagi menulis state;
-- CLI `spark` konsisten dengan layout root;
-- CI mencakup dependency audit + PHPUnit;
-- UI utama mobile-responsive.
+Aplikasi saat ini sudah memiliki perlindungan yang memadai untuk operasional internal madrasah: explicit routes, CSRF, role validation, private proof storage, duplicate protection Iuran, snapshot histori Golongan, export aman, dependency audit, PHPUnit, pembatasan tanggal transaksi, warning Setoran > saldo, dan audit trail transaksi sederhana.
 
-## 7. Urutan Pekerjaan Berikutnya
-
-Pekerjaan teknis yang dapat dilakukan tanpa keputusan bisnis besar berikutnya adalah memperluas test bisnis otomatis. Untuk perubahan perilaku operasional, keputusan berikut perlu ditetapkan terlebih dahulu:
-
-1. **Tanggal masa depan:** blokir semua transaksi di atas hari ini atau tetap izinkan?
-2. **Setoran melebihi saldo:** blokir keras atau hanya warning?
-3. **Audit trail:** apakah edit/hapus transaksi keuangan perlu disimpan permanen dalam tabel audit?
-
-Setelah tiga kebijakan ini ditetapkan, implementasi dapat diteruskan tanpa asumsi bisnis tersembunyi.
+Fokus pengembangan selanjutnya dapat berpindah dari perbaikan bug dasar ke peningkatan coverage test dan observability operasional.
