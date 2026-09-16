@@ -64,8 +64,8 @@ $penjualSudahBayar = array_flip(array_map('intval', $penjualSudahBayar ?? []));
             <div class="row align-items-end g-3">
                 <div class="col-12 col-md-4">
                     <label for="tanggal" class="form-label">Tanggal Iuran <span class="text-danger">*</span></label>
-                    <input type="date" class="form-control" id="tanggal" name="tanggal" value="<?= esc((string) $tanggal) ?>" data-loaded-date="<?= esc((string) $tanggalDefault) ?>" required>
-                    <div class="form-text">Mengganti tanggal akan memuat ulang status pembayaran pada tanggal tersebut.</div>
+                    <input type="date" class="form-control" id="tanggal" name="tanggal" value="<?= esc((string) $tanggal) ?>" max="<?= esc((string) $tanggalMaks) ?>" data-loaded-date="<?= esc((string) $tanggalDefault) ?>" required>
+                    <div class="form-text">Tanggal tidak boleh melebihi hari ini. Mengganti tanggal akan memuat ulang status pembayaran pada tanggal tersebut.</div>
                 </div>
                 <div class="col-12 col-md-8">
                     <div class="alert alert-primary mb-0 py-2">
@@ -214,7 +214,7 @@ document.addEventListener('DOMContentLoaded', function () {
         dateInput.addEventListener('change', function () {
             const value = dateInput.value;
             const loadedDate = dateInput.dataset.loadedDate || '';
-            if (!value || value === loadedDate) {
+            if (!value || value === loadedDate || !dateInput.checkValidity()) {
                 return;
             }
 
