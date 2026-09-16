@@ -28,7 +28,8 @@ $keterangan = old('keterangan') ?: '';
                         <div class="row g-4">
                             <div class="col-12 col-md-4">
                                 <label for="tanggal" class="form-label">Tanggal <span class="text-danger">*</span></label>
-                                <input type="date" class="form-control" id="tanggal" name="tanggal" value="<?= esc((string) $tanggal) ?>" required>
+                                <input type="date" class="form-control" id="tanggal" name="tanggal" value="<?= esc((string) $tanggal) ?>" max="<?= esc((string) $tanggalMaks) ?>" required>
+                                <div class="form-text">Tanggal transaksi tidak boleh melebihi hari ini.</div>
                             </div>
 
                             <div class="col-12 col-md-8">
