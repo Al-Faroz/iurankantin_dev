@@ -5,6 +5,7 @@ namespace App\Controllers;
 use App\Models\SetoranPimpinanModel;
 use App\Models\TransaksiIuranModel;
 use App\Models\TransaksiPengeluaranModel;
+use App\Services\AuditTransaksiService;
 use App\Services\BuktiTransaksiStorageService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 
@@ -71,7 +72,8 @@ class KoreksiTransaksi extends BaseController
     public function hapusIuran(int $id)
     {
         $model = new TransaksiIuranModel();
-        if ($model->find($id) === null) {
+        $row = $model->find($id);
+        if ($row === null) {
             throw PageNotFoundException::forPageNotFound('Transaksi iuran tidak ditemukan.');
         }
 
@@ -79,6 +81,16 @@ class KoreksiTransaksi extends BaseController
             return redirect()->to($this->returnUrl())
                 ->with('error', 'Transaksi iuran gagal dihapus. Silakan coba kembali.');
         }
+
+        (new AuditTransaksiService())->catat('DELETE_KOREKSI', 'iuran', $id, [
+            'sebelum' => [
+                'id_penjual' => (int) ($row['id_penjual'] ?? 0),
+                'tanggal' => (string) ($row['tanggal'] ?? ''),
+                'nominal' => (float) ($row['nominal'] ?? 0),
+                'keterangan' => $row['keterangan'] ?? null,
+                'nama_golongan_snapshot' => $row['nama_golongan_snapshot'] ?? null,
+            ],
+        ]);
 
         return redirect()->to($this->returnUrl())->with('success', 'Transaksi iuran yang salah berhasil dihapus permanen.');
     }
@@ -95,6 +107,16 @@ class KoreksiTransaksi extends BaseController
             return redirect()->to($this->returnUrl())
                 ->with('error', 'Transaksi pengeluaran gagal dihapus. Silakan coba kembali.');
         }
+
+        (new AuditTransaksiService())->catat('DELETE_KOREKSI', 'pengeluaran', $id, [
+            'sebelum' => [
+                'tanggal' => (string) ($row['tanggal'] ?? ''),
+                'id_kategori_keluar' => (int) ($row['id_kategori_keluar'] ?? 0),
+                'nominal' => (float) ($row['nominal'] ?? 0),
+                'keterangan' => $row['keterangan'] ?? null,
+                'ada_bukti' => ! empty($row['bukti_nota']),
+            ],
+        ]);
 
         (new BuktiTransaksiStorageService())->hapusNota($row['bukti_nota'] ?? null);
 
@@ -113,6 +135,17 @@ class KoreksiTransaksi extends BaseController
             return redirect()->to($this->returnUrl())
                 ->with('error', 'Transaksi setoran gagal dihapus. Silakan coba kembali.');
         }
+
+        (new AuditTransaksiService())->catat('DELETE_KOREKSI', 'setoran', $id, [
+            'sebelum' => [
+                'tanggal_form' => (string) ($row['tanggal_form'] ?? ''),
+                'periode_awal' => (string) ($row['periode_awal'] ?? ''),
+                'periode_akhir' => (string) ($row['periode_akhir'] ?? ''),
+                'nominal' => (float) ($row['nominal'] ?? 0),
+                'keterangan' => $row['keterangan'] ?? null,
+                'ada_bukti' => ! empty($row['bukti_setoran']),
+            ],
+        ]);
 
         (new BuktiTransaksiStorageService())->hapusSetoran($row['bukti_setoran'] ?? null);
 
