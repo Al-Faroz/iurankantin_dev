@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\GolonganPenjualModel;
 use App\Models\PenjualModel;
+use App\Services\LaporanService;
 use CodeIgniter\Exceptions\PageNotFoundException;
 
 class Penjual extends BaseController
@@ -25,6 +26,38 @@ class Penjual extends BaseController
             'title' => 'Master Penjual',
             'penjual' => $this->model->getWithGolongan(),
         ]);
+    }
+
+    public function export()
+    {
+        $rows = $this->model->getWithGolongan();
+        $excelRows = [];
+
+        foreach ($rows as $index => $row) {
+            $excelRows[] = [
+                $index + 1,
+                $row['nama_penjual'],
+                $row['nama_golongan'] ?? '',
+                (float) ($row['nominal_iuran'] ?? 0),
+                $row['alamat'] ?? '',
+                $row['no_hp'] ?? '',
+                $row['lokasi_lapak'] ?? '',
+                $row['status_aktif'],
+                date('d-m-Y', strtotime((string) $row['tanggal_daftar'])),
+                $row['kode_kartu'] ?? '',
+            ];
+        }
+
+        $binary = (new LaporanService())->excel(
+            'Data Penjual',
+            ['No', 'Nama Penjual', 'Golongan', 'Nominal Iuran', 'Alamat', 'No. HP', 'Lokasi / Lapak', 'Status', 'Tanggal Bergabung', 'Kode Kartu'],
+            $excelRows
+        );
+
+        return $this->response
+            ->setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            ->setHeader('Content-Disposition', 'attachment; filename="data-penjual.xlsx"')
+            ->setBody($binary);
     }
 
     public function create()
