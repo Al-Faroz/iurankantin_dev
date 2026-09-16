@@ -4,6 +4,7 @@ namespace App\Controllers;
 
 use App\Models\SetoranPimpinanModel;
 use App\Models\SettingModel;
+use App\Services\AuditTransaksiService;
 use App\Services\BuktiSetoranService;
 use App\Services\BuktiTransaksiStorageService;
 use App\Services\PdfService;
@@ -41,9 +42,12 @@ class Setoran extends BaseController
 
     public function cetakForm()
     {
+        $today = Time::now('Asia/Jakarta')->toDateString();
+
         return view('setoran_cetak_form', [
             'title' => 'Cetak Form Setoran',
-            'tanggalDefault' => Time::now('Asia/Jakarta')->toDateString(),
+            'tanggalDefault' => $today,
+            'tanggalMaks' => $today,
         ]);
     }
 
@@ -54,6 +58,10 @@ class Setoran extends BaseController
         }
 
         $tanggalForm = (string) $this->request->getPost('tanggal_form');
+        if ($tanggalForm > Time::now('Asia/Jakarta')->toDateString()) {
+            return redirect()->back()->withInput()->with('error', 'Tanggal Form Setoran tidak boleh melebihi hari ini.');
+        }
+
         $periodeAwal = (string) $this->request->getPost('periode_awal');
         $periodeAkhir = (string) $this->request->getPost('periode_akhir');
         if ($periodeAwal > $periodeAkhir) {
@@ -87,9 +95,13 @@ class Setoran extends BaseController
 
     public function input()
     {
+        $today = Time::now('Asia/Jakarta')->toDateString();
+
         return view('setoran_input', [
             'title' => 'Input Setoran Resmi',
-            'tanggalDefault' => Time::now('Asia/Jakarta')->toDateString(),
+            'tanggalDefault' => $today,
+            'tanggalMaks' => $today,
+            'saldoTersedia' => $this->saldoKas(),
             'setoran' => null,
         ]);
     }
@@ -101,9 +113,15 @@ class Setoran extends BaseController
         }
 
         $payload = $this->payload();
+        if ($payload['tanggal_form'] > Time::now('Asia/Jakarta')->toDateString()) {
+            return redirect()->back()->withInput()->with('error', 'Tanggal Setoran Resmi tidak boleh melebihi hari ini.');
+        }
         if ($payload['periode_awal'] > $payload['periode_akhir']) {
             return redirect()->back()->withInput()->with('error', 'Periode awal tidak boleh melewati periode akhir.');
         }
+
+        $saldoSebelum = $this->saldoKas();
+        $melebihiSaldo = (float) $payload['nominal'] > $saldoSebelum;
 
         $file = $this->request->getFile('bukti_setoran');
         if ($file === null || $file->getError() === UPLOAD_ERR_NO_FILE) {
@@ -117,7 +135,8 @@ class Setoran extends BaseController
             $payload['id_operator'] = (int) session()->get('id_user');
             $payload['created_at'] = date('Y-m-d H:i:s');
 
-            if ($this->model->insert($payload) === false) {
+            $idSetoran = $this->model->insert($payload, true);
+            if ($idSetoran === false) {
                 throw new RuntimeException('Gagal menyimpan setoran resmi ke database.');
             }
         } catch (RuntimeException $e) {
@@ -127,6 +146,12 @@ class Setoran extends BaseController
 
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
+
+        (new AuditTransaksiService())->catat('CREATE', 'setoran', (int) $idSetoran, [
+            'setoran' => $this->ringkasSetoran($payload),
+            'saldo_sebelum' => $saldoSebelum,
+            'melebihi_saldo' => $melebihiSaldo,
+        ]);
 
         return redirect()->to($this->baseUrl . '/setoran')->with('success', 'Setoran resmi dan bukti foto berhasil dicatat.');
     }
@@ -138,9 +163,13 @@ class Setoran extends BaseController
             throw PageNotFoundException::forPageNotFound('Setoran pimpinan tidak ditemukan.');
         }
 
+        $today = Time::now('Asia/Jakarta')->toDateString();
+
         return view('setoran_input', [
             'title' => 'Edit Setoran Pimpinan',
-            'tanggalDefault' => Time::now('Asia/Jakarta')->toDateString(),
+            'tanggalDefault' => $today,
+            'tanggalMaks' => $today,
+            'saldoTersedia' => $this->saldoKas() + (float) $setoran['nominal'],
             'setoran' => $setoran,
         ]);
     }
@@ -157,10 +186,15 @@ class Setoran extends BaseController
         }
 
         $payload = $this->payload();
+        if ($payload['tanggal_form'] > Time::now('Asia/Jakarta')->toDateString()) {
+            return redirect()->back()->withInput()->with('error', 'Tanggal Setoran Resmi tidak boleh melebihi hari ini.');
+        }
         if ($payload['periode_awal'] > $payload['periode_akhir']) {
             return redirect()->back()->withInput()->with('error', 'Periode awal tidak boleh melewati periode akhir.');
         }
 
+        $saldoSebelum = $this->saldoKas() + (float) $setoranLama['nominal'];
+        $melebihiSaldo = (float) $payload['nominal'] > $saldoSebelum;
         $buktiBaru = null;
         $file = $this->request->getFile('bukti_setoran');
 
@@ -185,6 +219,14 @@ class Setoran extends BaseController
 
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
+
+        $setoranBaru = array_merge($setoranLama, $payload);
+        (new AuditTransaksiService())->catat('UPDATE', 'setoran', $id, [
+            'sebelum' => $this->ringkasSetoran($setoranLama),
+            'sesudah' => $this->ringkasSetoran($setoranBaru),
+            'saldo_sebelum' => $saldoSebelum,
+            'melebihi_saldo' => $melebihiSaldo,
+        ]);
 
         return redirect()->to($this->baseUrl . '/setoran')->with('success', 'Setoran pimpinan berhasil diperbarui.');
     }
@@ -216,6 +258,10 @@ class Setoran extends BaseController
             return redirect()->to($this->baseUrl . '/setoran')
                 ->with('error', 'Setoran pimpinan gagal dihapus. Silakan coba kembali.');
         }
+
+        (new AuditTransaksiService())->catat('DELETE', 'setoran', $id, [
+            'sebelum' => $this->ringkasSetoran($setoran),
+        ]);
 
         if (! empty($setoran['bukti_setoran'])) {
             $this->hapusBukti((string) $setoran['bukti_setoran']);
@@ -291,6 +337,28 @@ class Setoran extends BaseController
         }
 
         return $rules;
+    }
+
+    private function saldoKas(): float
+    {
+        $db = db_connect();
+        $iuran = (float) ($db->table('transaksi_iuran')->selectSum('nominal', 'total')->get()->getRowArray()['total'] ?? 0);
+        $pengeluaran = (float) ($db->table('transaksi_pengeluaran')->selectSum('nominal', 'total')->get()->getRowArray()['total'] ?? 0);
+        $setoran = (float) ($db->table('setoran_pimpinan')->selectSum('nominal', 'total')->get()->getRowArray()['total'] ?? 0);
+
+        return $iuran - $pengeluaran - $setoran;
+    }
+
+    private function ringkasSetoran(array $row): array
+    {
+        return [
+            'tanggal_form' => (string) ($row['tanggal_form'] ?? ''),
+            'periode_awal' => (string) ($row['periode_awal'] ?? ''),
+            'periode_akhir' => (string) ($row['periode_akhir'] ?? ''),
+            'nominal' => (float) ($row['nominal'] ?? 0),
+            'keterangan' => $row['keterangan'] ?? null,
+            'ada_bukti' => ! empty($row['bukti_setoran']),
+        ];
     }
 
     private function hapusBukti(string $relativePath): void
