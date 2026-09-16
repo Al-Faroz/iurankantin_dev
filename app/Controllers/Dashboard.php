@@ -10,10 +10,24 @@ class Dashboard extends BaseController
     {
         $db = db_connect();
         $today = Time::now('Asia/Jakarta')->toDateString();
+        $monthStart = (new \DateTimeImmutable('first day of this month', new \DateTimeZone('Asia/Jakarta')))->format('Y-m-d');
 
-        $iuranHariIni = $this->sumNominal($db->table('transaksi_iuran')->where('tanggal', $today));
-        $pengeluaranHariIni = $this->sumNominal($db->table('transaksi_pengeluaran')->where('tanggal', $today));
-        $setoranHariIni = $this->sumNominal($db->table('setoran_pimpinan')->where('tanggal_form', $today));
+        // Ringkasan utama dashboard menampilkan total bulan berjalan, bukan hanya hari ini.
+        $iuranBulanIni = $this->sumNominal(
+            $db->table('transaksi_iuran')
+                ->where('tanggal >=', $monthStart)
+                ->where('tanggal <=', $today)
+        );
+        $pengeluaranBulanIni = $this->sumNominal(
+            $db->table('transaksi_pengeluaran')
+                ->where('tanggal >=', $monthStart)
+                ->where('tanggal <=', $today)
+        );
+        $setoranBulanIni = $this->sumNominal(
+            $db->table('setoran_pimpinan')
+                ->where('tanggal_form >=', $monthStart)
+                ->where('tanggal_form <=', $today)
+        );
 
         $totalIuran = $this->sumNominal($db->table('transaksi_iuran'));
         $totalPengeluaran = $this->sumNominal($db->table('transaksi_pengeluaran'));
@@ -31,9 +45,10 @@ class Dashboard extends BaseController
         return view('dashboard_index', [
             'title' => 'Dashboard',
             'today' => $today,
-            'iuranHariIni' => $iuranHariIni,
-            'pengeluaranHariIni' => $pengeluaranHariIni,
-            'setoranHariIni' => $setoranHariIni,
+            'monthStart' => $monthStart,
+            'iuranBulanIni' => $iuranBulanIni,
+            'pengeluaranBulanIni' => $pengeluaranBulanIni,
+            'setoranBulanIni' => $setoranBulanIni,
             'saldoKas' => $totalIuran - $totalPengeluaran - $totalSetoran,
             'penjualAktif' => $penjualAktif,
             'iuranBulanBerjalan' => $iuranBulanBerjalan,
