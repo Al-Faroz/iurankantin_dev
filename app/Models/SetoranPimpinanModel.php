@@ -17,6 +17,7 @@ class SetoranPimpinanModel extends Model
         'periode_akhir',
         'nominal',
         'keterangan',
+        'bukti_setoran',
         'id_operator',
         'created_at',
     ];
