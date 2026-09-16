@@ -44,7 +44,8 @@ class KartuAnggota extends BaseController
     public function downloadFront(int $id)
     {
         try {
-            $penjual = $this->service->ensureCodes($id, false);
+            // GET download tidak boleh membuat kode baru. Generate tetap aksi POST terpisah.
+            $penjual = $this->service->preparedDetail($id);
             $binary = $this->service->renderFront($penjual);
         } catch (RuntimeException $e) {
             return redirect()->to($this->baseUrl . '/kartu')->with('error', $e->getMessage());
@@ -56,7 +57,8 @@ class KartuAnggota extends BaseController
     public function downloadComplete(int $id)
     {
         try {
-            $penjual = $this->service->ensureCodes($id, false);
+            // GET download tidak boleh membuat kode baru. Generate tetap aksi POST terpisah.
+            $penjual = $this->service->preparedDetail($id);
             $base = $this->service->safeName($penjual);
             $zip = $this->service->zip([
                 $base . '-depan.jpg' => $this->service->renderFront($penjual),
@@ -74,6 +76,7 @@ class KartuAnggota extends BaseController
         try {
             $files = [];
             foreach ($this->activeSellers() as $row) {
+                // Download massal adalah POST karena dapat membuat kode kartu yang belum ada.
                 $penjual = $this->service->ensureCodes((int) $row['id_penjual'], false);
                 $files[$this->service->safeName($penjual) . '-depan.jpg'] = $this->service->renderFront($penjual);
             }
@@ -96,6 +99,7 @@ class KartuAnggota extends BaseController
             $files = [];
             $back = $this->service->renderBack();
             foreach ($this->activeSellers() as $row) {
+                // Download massal adalah POST karena dapat membuat kode kartu yang belum ada.
                 $penjual = $this->service->ensureCodes((int) $row['id_penjual'], false);
                 $base = $this->service->safeName($penjual);
                 $files[$base . '-depan.jpg'] = $this->service->renderFront($penjual);
