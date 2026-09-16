@@ -12,10 +12,11 @@
 
 .env
 
-# Data upload dinamis (foto nota, logo, background kartu) - tidak ditrack Git
+# Data upload dinamis (foto nota, bukti setoran, logo, background kartu) - tidak ditrack Git
 /uploads/*
 !/uploads/.htaccess
 !/uploads/bukti_nota/
+!/uploads/bukti_setoran/
 !/uploads/branding/
 
 # OS / editor
