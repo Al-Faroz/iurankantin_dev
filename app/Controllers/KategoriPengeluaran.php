@@ -38,9 +38,13 @@ class KategoriPengeluaran extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $this->model->insert([
+        $saved = $this->model->insert([
             'nama_kategori' => trim((string) $this->request->getPost('nama_kategori')),
         ]);
+
+        if ($saved === false) {
+            return redirect()->back()->withInput()->with('error', 'Kategori pengeluaran gagal disimpan. Silakan coba kembali.');
+        }
 
         return redirect()->to($this->baseUrl . '/kategori-pengeluaran')->with('success', 'Kategori pengeluaran berhasil ditambahkan.');
     }
@@ -68,9 +72,13 @@ class KategoriPengeluaran extends BaseController
             return redirect()->back()->withInput()->with('errors', $this->validator->getErrors());
         }
 
-        $this->model->update($id, [
+        $saved = $this->model->update($id, [
             'nama_kategori' => trim((string) $this->request->getPost('nama_kategori')),
         ]);
+
+        if ($saved === false) {
+            return redirect()->back()->withInput()->with('error', 'Kategori pengeluaran gagal diperbarui. Silakan coba kembali.');
+        }
 
         return redirect()->to($this->baseUrl . '/kategori-pengeluaran')->with('success', 'Kategori pengeluaran berhasil diperbarui.');
     }
@@ -82,9 +90,14 @@ class KategoriPengeluaran extends BaseController
         }
 
         $now = date('Y-m-d H:i:s');
-        db_connect()->table('kategori_pengeluaran')
+        $saved = db_connect()->table('kategori_pengeluaran')
             ->where('id_kategori_keluar', $id)
             ->update(['deleted_at' => $now, 'updated_at' => $now]);
+
+        if ($saved === false) {
+            return redirect()->to($this->baseUrl . '/kategori-pengeluaran')
+                ->with('error', 'Kategori pengeluaran gagal diarsipkan. Silakan coba kembali.');
+        }
 
         return redirect()->to($this->baseUrl . '/kategori-pengeluaran')
             ->with('success', 'Kategori pengeluaran berhasil diarsipkan dari master data.');
