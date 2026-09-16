@@ -43,7 +43,7 @@ class Laporan extends BaseController
 
         return $this->excelResponse(
             $this->service->excel('Laporan Iuran', ['Tanggal', 'Penjual', 'Golongan', 'Nominal', 'Keterangan', 'Operator'], $excelRows),
-            'laporan-iuran.xlsx'
+            'laporan-iuran_' . $this->periodSuffix($filter) . '.xlsx'
         );
     }
 
@@ -76,7 +76,7 @@ class Laporan extends BaseController
 
         return $this->excelResponse(
             $this->service->excel('Laporan Pengeluaran', ['Tanggal', 'Kategori', 'Nominal', 'Keterangan', 'Bukti Nota', 'Operator'], $excelRows),
-            'laporan-pengeluaran.xlsx'
+            'laporan-pengeluaran_' . $this->periodSuffix($filter) . '.xlsx'
         );
     }
 
@@ -108,7 +108,7 @@ class Laporan extends BaseController
 
         return $this->excelResponse(
             $this->service->excel('Laporan Setoran', ['Tanggal Form', 'Periode Awal', 'Periode Akhir', 'Nominal', 'Keterangan', 'Operator'], $excelRows),
-            'laporan-setoran.xlsx'
+            'laporan-setoran_' . $this->periodSuffix($filter) . '.xlsx'
         );
     }
 
@@ -129,7 +129,6 @@ class Laporan extends BaseController
         $filter = $this->filter([]);
         $rekap = $this->service->rekapKas($filter);
         $periodeAwal = date('d-m-Y', strtotime($filter['tanggal_awal']));
-        $periodeAkhir = date('d-m-Y', strtotime($filter['tanggal_akhir']));
 
         $excelRows = [[
             $periodeAwal,
@@ -153,7 +152,7 @@ class Laporan extends BaseController
 
         return $this->excelResponse(
             $this->service->excel('Rekap Kas', ['Tanggal', 'Jenis', 'Uraian', 'Masuk', 'Keluar', 'Saldo'], $excelRows),
-            'rekap-kas_' . $periodeAwal . '_sd_' . $periodeAkhir . '.xlsx'
+            'rekap-kas_' . $this->periodSuffix($filter) . '.xlsx'
         );
     }
 
@@ -187,6 +186,14 @@ class Laporan extends BaseController
         }
 
         return $filter;
+    }
+
+    private function periodSuffix(array $filter): string
+    {
+        $awal = date('d-m-Y', strtotime((string) $filter['tanggal_awal']));
+        $akhir = date('d-m-Y', strtotime((string) $filter['tanggal_akhir']));
+
+        return $awal . '_sd_' . $akhir;
     }
 
     private function penjualOptions(): array
