@@ -44,13 +44,17 @@ class User extends BaseController
             return redirect()->back()->withInput()->with('error', 'Username sudah digunakan.');
         }
 
-        $this->model->insert([
+        $saved = $this->model->insert([
             'nama' => trim((string) $this->request->getPost('nama')),
             'username' => $username,
             'password' => password_hash((string) $this->request->getPost('password'), PASSWORD_DEFAULT),
             'role' => (string) $this->request->getPost('role'),
             'status_aktif' => (string) $this->request->getPost('status_aktif'),
         ]);
+
+        if ($saved === false) {
+            return redirect()->back()->withInput()->with('error', 'User gagal disimpan. Silakan coba kembali.');
+        }
 
         return redirect()->to($this->baseUrl . '/user')->with('success', 'User berhasil ditambahkan.');
     }
@@ -103,7 +107,9 @@ class User extends BaseController
             $data['password'] = password_hash($password, PASSWORD_DEFAULT);
         }
 
-        $this->model->update($id, $data);
+        if ($this->model->update($id, $data) === false) {
+            return redirect()->back()->withInput()->with('error', 'User gagal diperbarui. Silakan coba kembali.');
+        }
 
         if ($id === (int) session()->get('id_user')) {
             session()->set([
