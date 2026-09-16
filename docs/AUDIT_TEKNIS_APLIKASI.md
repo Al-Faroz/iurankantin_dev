@@ -67,7 +67,7 @@ Area yang diperiksa:
 
 ### F. Formula injection pada export Excel
 
-**Risiko:** teks dari input pengguna yang diawali `=`, `+`, `-`, atau `@` dapat ditafsirkan sebagai formula spreadsheet. Selain itu teks seperti nomor HP berawalan nol dapat berubah tipe.
+**Risiko:** teks dari input pengguna yang diawali karakter formula dapat ditafsirkan sebagai formula spreadsheet. Selain itu teks seperti nomor HP berawalan nol dapat berubah tipe.
 
 **Perbaikan:** seluruh nilai PHP bertipe string diekspor dengan `TYPE_STRING`; data numerik tetap ditulis sebagai angka.
 
@@ -75,7 +75,7 @@ Area yang diperiksa:
 
 ### G. Filter tanggal hanya memeriksa pola, bukan kalender valid
 
-**Risiko:** nilai seperti `2026-99-99` memenuhi regex `YYYY-MM-DD` tetapi bukan tanggal valid.
+**Risiko:** nilai seperti `2026-99-99` memenuhi pola `YYYY-MM-DD` tetapi bukan tanggal valid.
 
 **Perbaikan:** filter Laporan dan Koreksi sekarang memvalidasi tanggal menggunakan `DateTimeImmutable::createFromFormat()` dan pencocokan hasil format.
 
@@ -86,6 +86,22 @@ Area yang diperiksa:
 **Risiko:** struktur source lokal membingungkan dan folder upload baru mudah terlewat.
 
 **Perbaikan:** exception folder `uploads/bukti_setoran/` ditambahkan bersama folder upload lain.
+
+**Status:** diperbaiki.
+
+### I. CRUD master dapat memberi pesan berhasil saat write database gagal
+
+**Risiko:** pada production dengan detail error database dimatikan, insert/update/archive yang gagal dapat diikuti redirect sukses bila return write tidak diperiksa.
+
+**Perbaikan:** write Penjual, Golongan, Kategori Pengeluaran, dan User sekarang memeriksa hasil database sebelum menampilkan pesan berhasil.
+
+**Status:** diperbaiki.
+
+### J. Generate kode kartu tidak memeriksa kegagalan update database
+
+**Risiko:** render/download kartu dapat berlanjut walaupun `kode_kartu`/`kode_verifikasi` gagal dipersistenkan.
+
+**Perbaikan:** `ensureCodes()` sekarang menghentikan proses dengan error bila update kode gagal.
 
 **Status:** diperbaiki.
 
