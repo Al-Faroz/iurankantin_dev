@@ -1,18 +1,18 @@
 # Dokumen Acuan Aplikasi Iuran Kantin MTsN 4 Jombang
 
-Dokumen ini adalah **baseline utama** aplikasi Iuran Kantin MTsN 4 Jombang. Isinya menggambarkan tujuan, aturan bisnis, arsitektur, struktur data, fitur, keamanan, UI/UX, dan cara operasional aplikasi dalam kondisi saat ini. Dokumen ini bukan catatan revisi dan bukan changelog.
+Dokumen ini adalah **baseline utama** Aplikasi Iuran Kantin MTsN 4 Jombang. Isinya menggambarkan tujuan, aturan bisnis, arsitektur, struktur data, fitur, keamanan, UI/UX, dan cara operasional aplikasi dalam kondisi saat ini. Dokumen ini bukan changelog dan bukan dokumen revisi bertingkat.
 
 ## 1. Tujuan dan Ruang Lingkup
 
 Aplikasi digunakan untuk pencatatan **iuran penjual/pedagang kantin kepada madrasah**, pengeluaran operasional kantin, setoran kas kepada pimpinan, pelaporan kas, serta pengelolaan kartu anggota kantin.
 
-Aplikasi bukan aplikasi kasir/POS, bukan aplikasi jual-beli kantin, dan bukan aplikasi iuran siswa. Sistem juga tidak mengelola piutang atau tunggakan penjual; transaksi iuran hanya dicatat ketika pembayaran benar-benar diterima.
+Aplikasi bukan aplikasi kasir/POS, bukan aplikasi jual-beli kantin, dan bukan aplikasi iuran siswa. Sistem tidak mengelola piutang/tunggakan; transaksi iuran hanya dicatat ketika pembayaran benar-benar diterima.
 
-Tujuan utama aplikasi:
+Tujuan utama:
 
 - mencatat pemasukan iuran harian penjual kantin;
 - mencatat pengeluaran operasional kantin;
-- mencatat setoran kas yang sudah benar-benar diserahkan kepada pimpinan;
+- mencatat setoran kas yang benar-benar sudah diserahkan kepada pimpinan;
 - menghitung saldo kas berjalan;
 - menyediakan laporan dan export Excel;
 - menyediakan form kontrol manual mingguan;
@@ -20,14 +20,12 @@ Tujuan utama aplikasi:
 
 ## 2. Role dan Hak Akses
 
-Aplikasi menggunakan dua role tetap.
-
 | Role | Hak akses |
 | --- | --- |
-| **Operator** | Mengelola master data, user, setting, input/koreksi transaksi, setoran, kartu anggota, scanner QR, dashboard, laporan, PDF, dan export Excel. |
+| **Operator** | Mengelola master data, user, setting, transaksi, koreksi transaksi, setoran, kartu anggota, scanner QR, dashboard, laporan, PDF, dan export Excel. |
 | **Pimpinan** | Read-only untuk Dashboard dan seluruh Laporan. Tidak memiliki akses ke route input/edit/hapus/master/setting/user. |
 
-Hak akses tulis tidak hanya disembunyikan di UI, tetapi dilindungi route dengan filter Operator. Status dan role user aktif divalidasi kembali terhadap database pada request terproteksi agar perubahan role/nonaktif berlaku tanpa menunggu session kedaluwarsa.
+Hak akses tulis dilindungi route dengan filter Operator. Status dan role user aktif divalidasi kembali terhadap database pada request terproteksi agar perubahan role atau status Nonaktif berlaku tanpa menunggu session kedaluwarsa.
 
 ## 3. Arsitektur dan Stack Teknis
 
@@ -43,170 +41,124 @@ Hak akses tulis tidak hanya disembunyikan di UI, tetapi dilindungi route dengan 
 | Excel | PhpSpreadsheet |
 | Gambar | GD + Intervention Image |
 | QR | Endroid QR Code |
-| Scanner | jsQR lokal + BarcodeDetector fallback bila tersedia |
+| Scanner | jsQR lokal + BarcodeDetector fallback |
 | Session | CodeIgniter Database Session (`ci_sessions`) |
-| Timezone aplikasi | `Asia/Jakarta` |
+| Timezone | `Asia/Jakarta` |
 | Asset runtime | Lokal, tanpa CDN |
 | Routing | Explicit routes; Auto Routing dinonaktifkan |
 | Deployment | Front controller `index.php` berada di root project untuk shared hosting |
 
-Struktur controller, model, service, dan view mengikuti MVC standar CodeIgniter 4. View menggunakan penamaan spesifik seperti `penjual_index.php`, `penjual_form.php`, `laporan_rekap_kas.php`; tidak menggunakan view generik `index.php`.
+View menggunakan nama spesifik seperti `penjual_index.php`, `penjual_form.php`, dan `laporan_rekap_kas.php`. Logic berat dipisahkan ke Service bila diperlukan.
 
 ## 4. Keamanan Dasar
 
 Ketentuan keamanan aplikasi:
 
-- seluruh route aplikasi didefinisikan secara eksplisit;
-- Auto Routing dinonaktifkan;
-- seluruh aksi tulis menggunakan HTTP POST dan dilindungi CSRF;
+- semua route didefinisikan eksplisit dan Auto Routing nonaktif;
+- aksi tulis menggunakan POST + CSRF;
 - session login disimpan di database;
-- password disimpan menggunakan `password_hash()` dan diverifikasi dengan `password_verify()`;
-- session ID diregenerasi setelah login berhasil;
-- login dibatasi dengan throttling per IP;
-- filter login memvalidasi kembali akun aktif ke database;
-- route Operator memvalidasi role terkini dari database;
-- Secure Headers CodeIgniter aktif secara global;
-- detail error database tidak ditampilkan pada environment production;
-- production wajib HTTPS, secure cookie, HttpOnly cookie, dan SameSite Lax;
-- `.htaccess` root memblokir akses langsung ke `app/`, `vendor/`, `writable/`, `tests/`, `docs/`, `.env`, Composer files, dan file sensitif lain;
-- `uploads/.htaccess` menonaktifkan directory listing dan memblokir eksekusi ekstensi script umum;
-- PDF menonaktifkan remote resource dan eksekusi PHP;
-- export Excel memperlakukan input pengguna sebagai teks literal untuk mencegah formula injection.
+- password menggunakan `password_hash()` / `password_verify()`;
+- session ID diregenerasi setelah login;
+- login menggunakan throttling per IP;
+- filter login memvalidasi akun aktif dan role terkini dari database;
+- Secure Headers aktif global;
+- DBDebug production dinonaktifkan;
+- production wajib HTTPS dan secure cookie;
+- `.htaccess` root memblokir source/configuration sensitif;
+- `uploads/.htaccess` memblokir directory listing dan eksekusi script umum;
+- Dompdf menonaktifkan remote resource dan PHP execution;
+- export Excel menulis input pengguna sebagai string literal untuk mencegah formula injection.
 
 ## 5. Struktur Database Operasional
 
 ### 5.1 `golongan_penjual`
 
-Master golongan penjual dan nominal iuran default.
+Field utama: `id_golongan`, `nama_golongan`, `nominal_iuran`, `deleted_at`, `created_at`, `updated_at`.
 
-Field utama:
-
-- `id_golongan` — primary key;
-- `nama_golongan`;
-- `nominal_iuran` — nominal default untuk Input Iuran;
-- `deleted_at`, `created_at`, `updated_at`.
-
-Master menggunakan soft delete. Golongan yang masih digunakan penjual aktif tidak boleh diarsipkan.
+Golongan adalah master data soft delete. Golongan yang masih digunakan Penjual aktif tidak boleh diarsipkan.
 
 ### 5.2 `kategori_pengeluaran`
 
-Master kategori pengeluaran.
-
-Field utama:
-
-- `id_kategori_keluar` — primary key;
-- `nama_kategori`;
-- `deleted_at`, `created_at`, `updated_at`.
+Field utama: `id_kategori_keluar`, `nama_kategori`, `deleted_at`, `created_at`, `updated_at`.
 
 Kategori diisi Operator dan menggunakan soft delete.
 
 ### 5.3 `users`
 
-Akun aplikasi.
+Field utama: `id_user`, `nama`, `username`, `password`, `role`, `status_aktif`, `created_at`, `updated_at`.
 
-Field utama:
-
-- `id_user` — primary key;
-- `nama`;
-- `username` — unik;
-- `password` — hash password;
-- `role` — `Operator` atau `Pimpinan`;
-- `status_aktif` — `Aktif` atau `Nonaktif`;
-- `created_at`, `updated_at`.
-
-Operator yang sedang dipakai login tidak boleh menonaktifkan atau menurunkan role akunnya sendiri melalui form User.
+`username` unik. Operator yang sedang digunakan login tidak boleh menonaktifkan atau mengubah akunnya sendiri menjadi Pimpinan.
 
 ### 5.4 `penjual`
 
-Master penjual/pedagang kantin.
-
 Field utama:
 
-- `id_penjual` — primary key;
+- `id_penjual`;
 - `nama_penjual`;
-- `id_golongan` — FK ke `golongan_penjual`;
-- `no_hp` — nullable;
-- `lokasi_lapak` — nullable;
-- `alamat` — nullable, maksimal 255 karakter;
-- `status_aktif` — `Aktif` atau `Nonaktif`;
+- `id_golongan`;
+- `no_hp` nullable;
+- `lokasi_lapak` nullable;
+- `alamat` nullable, maksimal 255 karakter;
+- `status_aktif`;
 - `tanggal_daftar`;
-- `kode_kartu` — kode kartu persisten dan unik;
-- `kode_verifikasi` — token verifikasi QR unik;
+- `kode_kartu` unik dan persisten;
+- `kode_verifikasi` unik;
 - `deleted_at`, `created_at`, `updated_at`.
 
 Penjual menggunakan soft delete agar histori transaksi tetap tersimpan.
 
 ### 5.5 `setting`
 
-Singleton setting aplikasi, menggunakan baris `id_setting = 1`.
-
-Field utama:
-
-- `nama_madrasah`;
-- `alamat_madrasah`;
-- `logo`;
-- `background_kartu_depan`;
-- `background_kartu_belakang`;
-- `updated_at`.
+Singleton setting `id_setting = 1` dengan field `nama_madrasah`, `alamat_madrasah`, `logo`, `background_kartu_depan`, `background_kartu_belakang`, dan `updated_at`.
 
 ### 5.6 `transaksi_iuran`
 
-Pemasukan iuran penjual.
-
 Field utama:
 
-- `id_transaksi` — primary key;
-- `id_penjual` — FK ke `penjual`;
+- `id_transaksi`;
+- `id_penjual`;
 - `tanggal`;
 - `nominal`;
-- `keterangan` — nullable;
-- `id_operator` — FK ke `users`;
+- `keterangan` nullable;
+- `id_operator`;
 - `created_at`.
 
-Transaksi tidak menggunakan soft delete. Koreksi data yang salah dilakukan dengan hard delete melalui menu Koreksi Transaksi.
+**Aturan bisnis terkunci:** satu Penjual maksimal memiliki **satu transaksi Iuran pada satu tanggal**.
+
+Perlindungan dilakukan berlapis:
+
+1. halaman Input Iuran menandai Penjual yang sudah tercatat pada tanggal terpilih;
+2. service server menolak request duplikat;
+3. database menggunakan unique index `uniq_iuran_penjual_tanggal (id_penjual, tanggal)`.
+
+Transaksi Iuran tidak memakai soft delete. Data salah dikoreksi melalui hard delete pada menu Koreksi Transaksi.
 
 ### 5.7 `transaksi_pengeluaran`
 
-Pengeluaran operasional kas kantin.
-
-Field utama:
-
-- `id_pengeluaran` — primary key;
-- `tanggal`;
-- `id_kategori_keluar` — FK ke kategori;
-- `nominal`;
-- `keterangan` — nullable;
-- `bukti_nota` — path foto bukti, nullable;
-- `id_operator`;
-- `created_at`.
+Field utama: `id_pengeluaran`, `tanggal`, `id_kategori_keluar`, `nominal`, `keterangan`, `bukti_nota`, `id_operator`, `created_at`.
 
 ### 5.8 `setoran_pimpinan`
 
-Setoran kas yang sudah benar-benar diserahkan kepada pimpinan.
+Field utama: `id_setoran`, `tanggal_form`, `periode_awal`, `periode_akhir`, `nominal`, `keterangan`, `bukti_setoran`, `id_operator`, `created_at`.
 
-Field utama:
-
-- `id_setoran` — primary key;
-- `tanggal_form`;
-- `periode_awal`;
-- `periode_akhir`;
-- `nominal`;
-- `keterangan` — nullable;
-- `bukti_setoran` — path foto bukti setoran;
-- `id_operator`;
-- `created_at`.
-
-`bukti_setoran` wajib untuk input Setoran Resmi baru. Record lama yang dibuat sebelum fitur bukti tersedia dapat memiliki nilai `NULL`.
+`bukti_setoran` wajib untuk Setoran Resmi baru; record lama dapat memiliki nilai `NULL`.
 
 ### 5.9 `ci_sessions`
 
-Tabel session CodeIgniter 4. Session aplikasi tidak menggunakan file session sebagai penyimpanan utama.
+Session CodeIgniter disimpan melalui Database Session Handler.
 
-### 5.10 Catatan pengelolaan schema
+### 5.10 Migration dan perubahan schema
 
-Migration aplikasi saat ini mencakup migration bisnis awal, tabel session, dan penambahan `alamat` pada `penjual` sampai migration `100010`.
+Migration aplikasi saat ini:
 
-Kolom `bukti_setoran` pada `setoran_pimpinan` adalah perubahan schema operasional yang diterapkan **manual melalui SQL/phpMyAdmin**, sesuai metode deployment hosting yang tidak memiliki terminal. SQL yang diperlukan pada database yang belum memiliki kolom tersebut:
+- `100001` s.d. `100008` — tabel bisnis awal;
+- `100009` — `ci_sessions`;
+- `100010` — penambahan `alamat` pada `penjual`;
+- `100011` — unique index satu Iuran per Penjual per tanggal.
+
+Migration `100011` bersifat aman terhadap index yang sudah dibuat manual: bila index sudah ada, migration tidak membuat ulang. Sebelum membuat index, migration memeriksa duplikasi historis dan menghentikan proses bila masih ditemukan data ganda.
+
+Kolom `bukti_setoran` merupakan perubahan schema operasional yang diterapkan manual melalui SQL/phpMyAdmin pada hosting existing:
 
 ```sql
 ALTER TABLE `setoran_pimpinan`
@@ -214,252 +166,152 @@ ADD COLUMN `bukti_setoran` VARCHAR(255) NULL
 AFTER `keterangan`;
 ```
 
-Jangan membuat atau menjalankan seeder pada database operasional existing hanya untuk menerapkan perubahan schema.
+Untuk unique Iuran, cek data lama lebih dulu:
+
+```sql
+SELECT `id_penjual`, `tanggal`, COUNT(*) AS `jumlah`
+FROM `transaksi_iuran`
+GROUP BY `id_penjual`, `tanggal`
+HAVING COUNT(*) > 1;
+```
+
+Jika query tersebut menghasilkan **0 baris**, unique index dapat diterapkan manual:
+
+```sql
+ALTER TABLE `transaksi_iuran`
+ADD UNIQUE KEY `uniq_iuran_penjual_tanggal` (`id_penjual`, `tanggal`);
+```
+
+Jangan menjalankan seeder pada database operasional existing untuk menerapkan perubahan schema.
 
 ## 6. Master Penjual
 
 Operator dapat menambah, melihat, mengedit, dan mengarsipkan Penjual. Form mencakup nama, golongan, nomor HP, lokasi/lapak, alamat, status, dan tanggal bergabung.
 
-Daftar Penjual:
+Daftar Penjual diurutkan berdasarkan nominal golongan terbesar lalu nama A–Z, mendukung DataTables Responsive, dan memiliki Export Excel Data Penjual.
 
-- diurutkan berdasarkan nominal golongan terbesar, lalu nama A–Z;
-- menampilkan alamat secara ringkas bersama identitas penjual;
-- mendukung DataTables Responsive;
-- memiliki Export Excel Data Penjual.
-
-Export Penjual berisi nama, golongan, nominal default, alamat, nomor HP, lokasi/lapak, status, tanggal bergabung, dan kode kartu. Karena merupakan master data dan bukan laporan periode, filename export Penjual tidak memakai rentang tanggal.
+Export Penjual mencakup nama, golongan, nominal default, alamat, nomor HP, lokasi/lapak, status, tanggal bergabung, dan kode kartu.
 
 ## 7. Input Iuran Harian
 
-Input Iuran menggunakan satu form bulk untuk seluruh Penjual aktif.
+Input Iuran menggunakan form bulk seluruh Penjual aktif.
 
-Aturan UI dan proses:
+Aturan proses:
 
+- tanggal aktif dapat dipilih Operator;
+- perubahan tanggal memuat ulang status Iuran pada tanggal tersebut;
 - Penjual diurutkan berdasarkan nominal golongan tertinggi lalu nama A–Z;
-- setiap Penjual memiliki switch `Bayar`;
-- nominal diprefill dari `nominal_iuran` golongan;
-- Operator boleh mengubah nominal transaksi yang dipilih;
-- Penjual yang tidak dicentang tidak disimpan;
+- Penjual yang belum tercatat memiliki switch `Bayar`;
+- nominal diprefill dari nominal golongan dan boleh dioverride;
+- Penjual yang sudah tercatat tampil berstatus **Tercatat** dan tidak dapat dipilih lagi;
+- Penjual tidak dicentang tidak disimpan;
 - minimal satu Penjual harus dipilih;
 - nominal terpilih harus lebih dari nol;
-- penyimpanan batch dilakukan dalam database transaction;
-- total Penjual terpilih dan total nominal dihitung langsung di UI;
-- layout mobile dibuat compact agar nyaman dipakai di Chrome Android.
+- service server memeriksa duplikasi lagi sebelum insert;
+- penyimpanan batch menggunakan database transaction;
+- unique index database menjadi perlindungan terakhir terhadap request bersamaan;
+- total Penjual terpilih dan nominal dihitung langsung di UI;
+- layout dibuat compact untuk Chrome Android.
+
+Jika transaksi lama salah, Operator harus menghapusnya melalui Koreksi Transaksi terlebih dahulu sebelum memasukkan ulang Penjual pada tanggal yang sama.
 
 ## 8. Form Iuran Mingguan
 
-Operator dapat mencetak PDF form kontrol mingguan dengan tanggal awal wajib hari Sabtu.
-
-Form berisi enam hari:
-
-- Sabtu;
-- Minggu;
-- Senin;
-- Selasa;
-- Rabu;
-- Kamis;
-
-Terdapat kolom Total per Penjual. Daftar Penjual mengikuti urutan Input Iuran: nominal golongan tertinggi kemudian nama A–Z. Header menggunakan data madrasah dari Setting.
+PDF kontrol mingguan menggunakan tanggal awal Sabtu dan memiliki kolom Sabtu, Minggu, Senin, Selasa, Rabu, Kamis, serta Total. Daftar Penjual mengikuti urutan Input Iuran.
 
 ## 9. Pengeluaran
 
-Input Pengeluaran mencakup:
+Input Pengeluaran mencakup tanggal, kategori, nominal, keterangan opsional, dan foto bukti nota opsional.
 
-- tanggal;
-- kategori;
-- nominal;
-- keterangan opsional;
-- foto bukti nota opsional.
-
-Foto bukti menerima JPG/JPEG/PNG maksimal 10 MB sebelum kompresi. Server menurunkan resolusi maksimal dan mengonversi hasil menjadi JPG dengan target ukuran di bawah 500 KB. DataTable Pengeluaran menampilkan link untuk melihat bukti yang tersedia.
-
-Jika penyimpanan transaksi ke database gagal setelah file berhasil dibuat, file baru dibersihkan agar tidak menjadi file yatim.
+Foto menerima JPG/JPEG/PNG maksimal 10 MB sebelum kompresi dan ditargetkan menjadi JPG di bawah 500 KB. Bila penyimpanan database gagal setelah file dibuat, file baru dibersihkan.
 
 ## 10. Setoran ke Pimpinan
 
-Setoran menggunakan dua tahap yang sengaja dipisahkan.
+Setoran menggunakan dua tahap terpisah.
 
 ### Tahap 1 — Cetak Form Setoran
 
-Operator mengisi tanggal form, periode awal, periode akhir, dan nominal, lalu menghasilkan PDF dua salinan pada satu A4. Tahap ini **tidak membuat transaksi database** dan belum mengurangi saldo kas.
+Operator mengisi tanggal form, periode awal, periode akhir, dan nominal untuk menghasilkan PDF. Tahap ini **tidak membuat transaksi database** dan tidak mengurangi saldo.
 
 ### Tahap 2 — Input Setoran Resmi
 
-Dilakukan setelah dana benar-benar diserahkan kepada pimpinan. Operator mengisi:
+Dilakukan setelah dana benar-benar diserahkan kepada pimpinan. Data meliputi tanggal form, periode, nominal, keterangan opsional, dan foto bukti wajib untuk record baru.
 
-- tanggal form;
-- periode awal;
-- periode akhir;
-- nominal;
-- keterangan opsional;
-- foto bukti setoran wajib untuk record baru.
-
-Foto menerima JPG/JPEG/PNG maksimal 10 MB sebelum kompresi, dikonversi menjadi JPG, dan ditargetkan di bawah 500 KB.
-
-Pada Edit Setoran:
-
-- bukti lama tetap digunakan bila tidak upload foto baru;
-- upload foto baru mengganti bukti lama setelah update database berhasil.
-
-Pada penghapusan permanen Setoran, file bukti ikut dibersihkan setelah transaksi database benar-benar berhasil dihapus.
-
-Bukti foto Setoran hanya digunakan pada form Setoran dan DataTable Setoran. Bukti tersebut tidak ditambahkan ke Laporan Setoran maupun export Excel Laporan Setoran.
+Edit Setoran mempertahankan bukti lama bila tidak ada upload baru. Penghapusan Setoran membersihkan file bukti hanya setelah delete database berhasil.
 
 ## 11. Koreksi Transaksi
 
-Koreksi hanya digunakan untuk transaksi yang benar-benar salah input dan bersifat hard delete.
+Koreksi hanya untuk data yang benar-benar salah input dan menggunakan hard delete dengan konfirmasi.
 
-Menu memiliki filter periode dan tiga tab:
+Tersedia tab Iuran, Pengeluaran, dan Setoran dengan filter periode. Penghapusan Pengeluaran/Setoran juga membersihkan file bukti terkait setelah operasi database berhasil.
 
-- Iuran;
-- Pengeluaran;
-- Setoran.
-
-Koreksi Iuran menggunakan tampilan compact mirip Input Iuran. Data dikelompokkan per tanggal, diurutkan nominal golongan terbesar lalu nama A–Z, dan setiap transaksi memiliki aksi hapus eksplisit dengan konfirmasi SweetAlert2.
-
-Penghapusan Pengeluaran membersihkan bukti nota terkait. Penghapusan Setoran membersihkan bukti setoran terkait. File baru dibersihkan hanya setelah operasi database berhasil agar database dan filesystem tetap konsisten.
+Untuk aturan unique Iuran, Koreksi Transaksi adalah mekanisme resmi bila Penjual harus diinput ulang pada tanggal yang sama.
 
 ## 12. Dashboard
 
-Urutan Dashboard adalah:
+Dashboard menampilkan:
 
-1. Ringkasan Bulan Berjalan;
-2. Aksi Cepat Operator;
-3. Grafik Tren.
-
-Ringkasan Bulan Berjalan menampilkan:
-
-- Iuran Masuk bulan berjalan;
+- Iuran bulan berjalan;
 - Pengeluaran bulan berjalan;
-- Setoran Pimpinan bulan berjalan;
-- Saldo Kas berjalan keseluruhan.
+- Setoran bulan berjalan;
+- Saldo Kas keseluruhan;
+- jumlah Penjual aktif;
+- tren Iuran harian bulan berjalan;
+- tren Iuran 6 bulan;
+- tren Pengeluaran 6 bulan.
 
-Saldo Kas menggunakan rumus:
+Saldo Kas:
 
 ```text
 Total seluruh Iuran - Total seluruh Pengeluaran - Total seluruh Setoran Resmi
 ```
 
-Pada mobile, empat kartu ringkasan menggunakan grid 2×2 dan padding compact agar Aksi Cepat lebih cepat terlihat.
-
-Aksi Cepat Operator menyediakan:
-
-- Input Iuran Hari Ini;
-- Cetak Form Mingguan.
-
-Dashboard memiliki tiga grafik:
-
-- **Tren Arus Kas Masuk Bulan Berjalan** — total iuran per hari dari tanggal 1 sampai hari ini;
-- **Tren Arus Kas Masuk 6 Bulan Terakhir** — total iuran per bulan;
-- **Tren Arus Pengeluaran 6 Bulan Terakhir** — total pengeluaran per bulan.
-
 ## 13. Laporan dan Export Excel
 
-Laporan tersedia untuk Operator dan Pimpinan:
+Tersedia Laporan Iuran, Pengeluaran, Setoran, dan Rekap Kas. Filter default tanggal 1 bulan berjalan sampai hari ini dan hanya menerima tanggal kalender valid.
 
-- Laporan Iuran;
-- Laporan Pengeluaran;
-- Laporan Setoran;
-- Rekap Kas.
+Rekap Kas menampilkan Saldo Awal, transaksi periode, dan Saldo Akhir kronologis. Iuran pada tanggal yang sama diagregasi menjadi satu baris `Total Iuran Harian (n transaksi)`.
 
-Filter tanggal default adalah tanggal 1 bulan berjalan sampai hari ini. Filter menerima tanggal kalender yang valid dan menukar tanggal awal/akhir bila urutannya terbalik.
-
-### Rekap Kas
-
-Rekap Kas menampilkan Saldo Awal, transaksi periode, dan Saldo Akhir secara kronologis.
-
-Khusus Iuran, Rekap Kas tidak menampilkan satu baris per nama Penjual. Semua Iuran pada tanggal yang sama digabung menjadi satu baris `Total Iuran Harian (n transaksi)`. Pengeluaran dan Setoran tetap tampil per transaksi.
-
-Saldo berjalan dihitung setelah setiap entry kronologis.
-
-### Export Excel
-
-Format tanggal export menggunakan `DD-MM-YYYY` secara konsisten. Filename seluruh laporan berbasis periode membawa tanggal filter, misalnya:
-
-```text
-laporan-iuran_01-09-2026_sd_16-09-2026.xlsx
-laporan-pengeluaran_01-09-2026_sd_16-09-2026.xlsx
-laporan-setoran_01-09-2026_sd_16-09-2026.xlsx
-rekap-kas_01-09-2026_sd_16-09-2026.xlsx
-```
-
-Data teks diekspor sebagai literal string agar tidak ditafsirkan Excel sebagai formula dan agar data seperti nomor HP berawalan nol tidak berubah.
+Export Excel mengikuti filter aktif, menggunakan format tanggal `DD-MM-YYYY`, filename membawa periode, dan string input pengguna ditulis sebagai literal text.
 
 ## 14. Kartu Anggota Kantin
 
-Kartu tidak menggunakan foto Penjual. Ukuran canvas adalah **1011 × 638 px**.
+Canvas kartu **1011 × 638 px**, tanpa foto Penjual.
 
-Sisi depan berisi:
+Sisi depan berisi Nama, Golongan, Lokasi/Lapak, No. HP, Tanggal Bergabung, Alamat, QR verifikasi, dan Kode Kartu. Sisi belakang statis dari background Setting.
 
-- Nama Penjual;
-- Golongan;
-- Lokasi/Lapak;
-- No. HP;
-- Tanggal Bergabung;
-- Alamat;
-- QR verifikasi;
-- Kode Kartu.
+`kode_kartu` persisten. Regenerate hanya mengganti `kode_verifikasi` sehingga QR lama tidak berlaku.
 
-Sisi belakang bersifat statis dan menggunakan gambar background dari Setting.
-
-`kode_kartu` dibuat sekali dan dipertahankan. `kode_verifikasi` berupa token acak 64 karakter hex dan boleh diregenerate. Regenerate token membuat QR lama tidak valid tanpa mengganti kode kartu.
-
-Download tersedia:
-
-- JPG sisi depan per Penjual;
-- ZIP depan + belakang per Penjual;
-- ZIP seluruh kartu depan Penjual aktif;
-- ZIP seluruh kartu lengkap Penjual aktif.
-
-Background depan dan belakang diupload melalui Setting.
+Download tersedia per Penjual dan bulk dalam format JPG/ZIP.
 
 ## 15. Verifikasi dan Scanner QR
 
-QR menyimpan URL verifikasi aplikasi.
+Halaman publik QR hanya menampilkan Nama Penjual, Golongan, dan Status. Nomor HP, alamat, serta riwayat Iuran tidak ditampilkan.
 
-Jika QR dibuka oleh pengunjung umum, halaman publik hanya menampilkan:
+Operator yang sudah login diarahkan ke Detail Penjual internal. Scanner memakai kamera browser, jsQR lokal, BarcodeDetector fallback, serta hanya menerima URL origin/path verifikasi aplikasi sendiri.
 
-- Nama Penjual;
-- Golongan;
-- Status.
-
-Nomor HP, alamat, riwayat Iuran, dan data internal lain tidak ditampilkan pada halaman publik.
-
-Jika QR dibuka ketika session Operator aktif, aplikasi mengarahkan ke Detail Penjual internal yang menampilkan data Penjual dan maksimal 20 transaksi Iuran terbaru.
-
-Menu Scan Kartu menggunakan kamera browser melalui `getUserMedia`, decoder jsQR lokal, dan BarcodeDetector sebagai fallback bila tersedia. Scanner juga dapat membaca gambar QR dari file. URL hasil scan harus berasal dari origin aplikasi yang sama dan path verifikasi aplikasi.
-
-HTTPS wajib untuk kamera pada production.
+HTTPS wajib untuk kamera production.
 
 ## 16. Setting dan Branding
 
-Operator dapat mengatur:
+Operator dapat mengatur Nama Madrasah, Alamat Madrasah, Logo, Background Kartu Depan, dan Background Kartu Belakang.
 
-- Nama Madrasah;
-- Alamat Madrasah;
-- Logo;
-- Background Kartu Depan;
-- Background Kartu Belakang.
-
-Upload branding menerima JPG/JPEG/PNG dengan batas ukuran file. File lama baru dihapus setelah path file baru berhasil disimpan ke database.
-
-Logo digunakan untuk favicon dinamis dan dokumen PDF sesuai kebutuhan aplikasi.
+Upload branding menerima JPG/JPEG/PNG. File lama baru dihapus setelah path baru berhasil disimpan ke database.
 
 ## 17. UI/UX
 
-Prinsip UI aplikasi:
+Prinsip UI:
 
-- mobile-first, terutama untuk penggunaan Chrome Android;
-- komponen mengikuti Sneat/Bootstrap 5;
-- DataTables Responsive untuk tabel utama;
-- SweetAlert2 untuk konfirmasi tindakan penting;
-- badge konsisten untuk status/kategori;
-- input uang memakai label Rupiah yang jelas;
-- tombol aksi tulis tidak ditampilkan untuk Pimpinan;
-- sidebar desktop dapat collapse/expand dan state disimpan di browser;
-- menu mobile menggunakan overlay;
-- asset aplikasi dan library runtime disajikan lokal;
-- halaman Input Iuran dan Koreksi Iuran dibuat compact khusus layar kecil.
+- mobile-first;
+- Sneat/Bootstrap 5;
+- DataTables Responsive;
+- SweetAlert2 untuk aksi penting;
+- badge status konsisten;
+- tombol aksi tulis tidak tampil untuk Pimpinan;
+- sidebar desktop collapse/expand dengan state browser;
+- menu mobile overlay;
+- asset runtime lokal;
+- Input/Koreksi Iuran compact di layar kecil.
 
 ## 18. Struktur File Penting
 
@@ -467,41 +319,15 @@ Prinsip UI aplikasi:
 app/
 ├── Config/
 ├── Controllers/
-│   ├── Auth.php
-│   ├── Dashboard.php
-│   ├── GolonganPenjual.php
-│   ├── Iuran.php
-│   ├── KartuAnggota.php
-│   ├── KategoriPengeluaran.php
-│   ├── KoreksiTransaksi.php
-│   ├── Laporan.php
-│   ├── Pengeluaran.php
-│   ├── Penjual.php
-│   ├── Setoran.php
-│   ├── Setting.php
-│   ├── User.php
-│   └── Verifikasi.php
 ├── Filters/
-│   ├── AuthFilter.php
-│   └── OperatorOnlyFilter.php
 ├── Models/
 ├── Services/
-│   ├── AuthSessionService.php
-│   ├── BrandingUploadService.php
-│   ├── BuktiNotaService.php
-│   ├── BuktiSetoranService.php
-│   ├── IuranService.php
-│   ├── KartuAnggotaService.php
-│   ├── LaporanService.php
-│   ├── PdfService.php
-│   └── QrService.php
 ├── Views/
 └── Database/
     ├── Migrations/
     └── Seeds/
-
-assets/                       # Sneat dan library lokal
-assets-app/qrcode-lib/        # scanner dan jsQR lokal
+assets/
+assets-app/qrcode-lib/
 uploads/
 ├── branding/
 ├── bukti_nota/
@@ -514,95 +340,71 @@ index.php
 composer.json
 ```
 
-File upload dinamis tidak menjadi source code dan harus dibackup bersama database.
+File upload dinamis harus dibackup bersama database.
 
 ## 19. Konvensi Pengembangan
 
-- Controller menggunakan PascalCase.
-- Model menggunakan nama `{Nama}Model.php`.
-- Logic berat ditempatkan di Service bila layak dipisah.
-- View menggunakan nama spesifik `{modul}_{aksi}.php`.
-- Komentar aplikasi menggunakan Bahasa Indonesia.
-- Aksi mutasi data menggunakan POST.
-- Master data menggunakan soft delete bila histori transaksi harus tetap utuh.
-- Transaksi salah menggunakan hard delete melalui alur koreksi dan konfirmasi.
-- Perubahan schema database hosting yang tidak dapat memakai terminal harus disediakan sebagai SQL phpMyAdmin, bukan mengandalkan perintah terminal.
-- Seeder hanya untuk fresh install dan tidak boleh dijalankan pada database operasional existing.
+- Controller PascalCase.
+- Model `{Nama}Model.php`.
+- View `{modul}_{aksi}.php`.
+- Komentar aplikasi Bahasa Indonesia.
+- Mutasi data menggunakan POST.
+- Master menggunakan soft delete jika histori harus dipertahankan.
+- Transaksi salah dikoreksi dengan hard delete melalui alur resmi.
+- Perubahan schema hosting tanpa terminal harus memiliki SQL phpMyAdmin yang ekuivalen.
+- Seeder hanya untuk fresh install.
 
 ## 20. Deployment Shared Hosting
 
-Production minimal membutuhkan PHP 8.2+ dengan extension:
-
-```text
-intl
-mbstring
-mysqli
-fileinfo
-gd
-zip
-```
+Production minimal PHP 8.2+ dengan extension `intl`, `mbstring`, `mysqli`, `fileinfo`, `gd`, dan `zip`.
 
 Ketentuan deployment:
 
 - `CI_ENVIRONMENT = production`;
-- `app.baseURL` memakai URL HTTPS production;
-- `app.forceGlobalSecureRequests = true` bila konfigurasi proxy/hosting mendukung dengan benar;
-- `cookie.secure = true`;
-- `writable/`, `uploads/branding/`, `uploads/bukti_nota/`, dan `uploads/bukti_setoran/` harus writable oleh PHP;
-- `.htaccess` root dan `uploads/.htaccess` wajib ikut ZIP deployment;
-- `vendor/` ikut ZIP bila hosting tidak menjalankan Composer;
-- jangan commit atau membagikan `.env` production;
-- backup database dan seluruh folder upload sebelum update;
+- `app.baseURL` HTTPS;
+- secure cookie aktif;
+- `writable/` serta folder upload writable;
+- `.htaccess` root dan uploads ikut deployment;
+- `vendor/` ikut bila Composer tidak tersedia di hosting;
+- `.env` tidak pernah masuk repository;
+- backup database + seluruh uploads sebelum update;
 - jangan menjalankan seeder pada database existing;
-- perubahan schema manual harus dijalankan di phpMyAdmin sebelum source baru yang membutuhkannya dipakai.
+- perubahan schema diterapkan sebelum source baru digunakan.
+
+Untuk penerapan unique Iuran pada hosting tanpa terminal: jalankan query deteksi duplikasi terlebih dahulu. Hanya jika hasilnya 0 baris, jalankan `ALTER TABLE ... ADD UNIQUE KEY` sebagaimana Bab 5.10.
 
 ## 21. Backup Operasional
 
-Backup produksi minimal mencakup:
-
-- dump database MySQL/MariaDB;
-- `uploads/branding/`;
-- `uploads/bukti_nota/`;
-- `uploads/bukti_setoran/`;
-- salinan konfigurasi `.env` disimpan aman di luar web root/repository.
-
-Source aplikasi dapat dipulihkan dari Git, tetapi database dan file upload adalah data operasional yang tidak dapat dibuat ulang dari repository.
+Backup minimal mencakup dump database, `uploads/branding/`, `uploads/bukti_nota/`, `uploads/bukti_setoran/`, dan salinan `.env` yang disimpan aman di luar repository/web root.
 
 ## 22. Smoke Test Wajib
 
-Setelah update source atau deployment, verifikasi minimal:
+Setelah deployment, verifikasi:
 
-- login Operator dan Pimpinan;
-- role Pimpinan benar-benar read-only;
-- akun Nonaktif kehilangan akses pada request berikutnya;
-- sidebar desktop/mobile;
-- CRUD dan arsip master;
+- login Operator/Pimpinan;
+- role Pimpinan read-only;
+- akun Nonaktif kehilangan akses;
+- CRUD/arsip master;
 - Input Iuran bulk;
-- Koreksi Iuran;
-- Input Pengeluaran dan kompres bukti nota;
-- Cetak Form Iuran Mingguan;
-- Cetak Form Setoran tanpa insert database;
-- Input/Edit/Delete Setoran Resmi dan bukti foto;
-- Dashboard card dan tiga grafik;
-- seluruh filter Laporan;
-- Rekap Kas dan saldo berjalan;
-- export Excel dan filename periode;
-- upload logo/background;
-- generate/download kartu;
-- verifikasi QR publik;
-- scan QR sebagai Operator;
-- HTTPS dan izin kamera pada perangkat Android;
-- akses langsung ke source/configuration menghasilkan 403/404.
+- ubah tanggal Input Iuran dan cek status **Tercatat**;
+- coba submit Penjual yang sudah tercatat dan pastikan ditolak;
+- Koreksi Iuran lalu pastikan Penjual dapat diinput ulang pada tanggal tersebut;
+- Pengeluaran + bukti;
+- Form Iuran Mingguan;
+- cetak dan simpan Setoran Resmi;
+- Dashboard dan grafik;
+- filter Laporan/Rekap Kas/export Excel;
+- Kartu/QR/scanner;
+- HTTPS dan proteksi source/configuration.
 
-## 23. Batas Perubahan yang Membutuhkan Keputusan Bisnis
+## 23. Perubahan yang Masih Membutuhkan Keputusan Bisnis
 
-Beberapa aturan tidak boleh diubah otomatis hanya karena kebutuhan teknis. Perubahan berikut harus diputuskan secara eksplisit sebelum implementasi:
+Aturan **satu Penjual maksimal satu Iuran per tanggal sudah diputuskan dan menjadi baseline aplikasi**.
 
-- apakah satu Penjual hanya boleh memiliki satu transaksi Iuran pada tanggal yang sama;
+Hal berikut masih membutuhkan keputusan eksplisit sebelum perubahan besar dilakukan:
+
 - apakah transaksi dengan tanggal masa depan harus ditolak;
 - apakah Setoran Resmi harus dibatasi agar tidak melebihi saldo kas;
-- apakah perubahan Golongan Penjual harus mempertahankan snapshot golongan pada histori Iuran;
-- apakah bukti transaksi harus dipindah dari folder publik ke storage privat dan disajikan melalui route terautentikasi;
-- apakah perubahan transaksi keuangan perlu audit trail selain data Operator pencatat.
-
-Selama belum ada keputusan baru, aplikasi mengikuti perilaku operasional yang dijelaskan di dokumen ini.
+- apakah histori Iuran harus menyimpan snapshot Golongan Penjual;
+- apakah bukti transaksi harus dipindahkan ke storage privat;
+- apakah transaksi keuangan memerlukan audit trail perubahan/hapus.
