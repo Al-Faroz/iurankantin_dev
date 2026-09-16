@@ -30,6 +30,7 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
                     <th>Periode</th>
                     <th>Nominal</th>
                     <th>Keterangan</th>
+                    <th class="no-sort">Bukti</th>
                     <th>Operator</th>
                     <th class="no-sort no-filter text-center">Aksi</th>
                 </tr>
@@ -41,6 +42,20 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
                     <td><?= esc(date('d-m-Y', strtotime($row['periode_awal']))) ?> s.d. <?= esc(date('d-m-Y', strtotime($row['periode_akhir']))) ?></td>
                     <td data-order="<?= esc((string) $row['nominal']) ?>">Rp <?= number_format((float) $row['nominal'], 0, ',', '.') ?></td>
                     <td><?= esc($row['keterangan'] ?: '-') ?></td>
+                    <td class="text-nowrap">
+                        <?php if (! empty($row['bukti_setoran'])): ?>
+                            <?php $buktiUrl = $baseUrl . '/' . ltrim((string) $row['bukti_setoran'], '/'); ?>
+                            <a href="<?= esc($buktiUrl) ?>" target="_blank" rel="noopener" class="d-inline-flex align-items-center gap-2" title="Lihat bukti setoran">
+                                <img src="<?= esc($buktiUrl) ?>"
+                                     alt="Bukti setoran"
+                                     class="rounded border"
+                                     style="width:42px;height:42px;object-fit:cover;">
+                                <span class="small">Lihat</span>
+                            </a>
+                        <?php else: ?>
+                            <span class="text-body-secondary">-</span>
+                        <?php endif; ?>
+                    </td>
                     <td><?= esc($row['nama_operator']) ?></td>
                     <td class="text-center text-nowrap">
                         <a href="<?= esc($baseUrl) ?>/setoran/<?= (int) $row['id_setoran'] ?>/cetak-ulang" class="btn btn-sm btn-outline-secondary" title="Download ulang form">
