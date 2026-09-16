@@ -94,6 +94,7 @@ class KartuAnggotaService
         $this->writeMeta($image, 'LOKASI / LAPAK', (string) ($penjual['lokasi_lapak'] ?: '-'), 270, 340, $fontRegular, $fontBold);
         $this->writeMeta($image, 'NO. HP', (string) ($penjual['no_hp'] ?: '-'), 40, 400, $fontRegular, $fontBold);
         $this->writeMeta($image, 'BERGABUNG', date('d-m-Y', strtotime((string) $penjual['tanggal_daftar'])), 270, 400, $fontRegular, $fontBold);
+        $this->writeAddress($image, (string) ($penjual['alamat'] ?: '-'), 40, 465, $fontRegular, $fontBold);
 
         $image->text((string) $penjual['kode_kartu'], 870, 505, function (FontFactory $font) use ($fontRegular): void {
             $font->filename($fontRegular);
@@ -171,6 +172,25 @@ class KartuAnggotaService
             $font->color('#ffffff');
             $font->valign('top');
             $font->wrap(210);
+        });
+    }
+
+    private function writeAddress($image, string $value, int $x, int $y, string $fontRegular, string $fontBold): void
+    {
+        $image->text('ALAMAT', $x, $y, function (FontFactory $font) use ($fontRegular): void {
+            $font->filename($fontRegular);
+            $font->size(10);
+            $font->color('#d9d9d9');
+            $font->valign('top');
+        });
+
+        $image->text($value, $x, $y + 17, function (FontFactory $font) use ($fontBold): void {
+            $font->filename($fontBold);
+            $font->size(15);
+            $font->color('#ffffff');
+            $font->valign('top');
+            $font->lineHeight(1.05);
+            $font->wrap(650);
         });
     }
 
