@@ -131,9 +131,12 @@ class Iuran extends BaseController
     private function getPenjualSudahBayar(string $tanggal): array
     {
         $rows = db_connect()->table('transaksi_iuran')
-            ->select('id_penjual')
-            ->where('tanggal', $tanggal)
-            ->groupBy('id_penjual')
+            ->select('transaksi_iuran.id_penjual')
+            ->join('penjual', 'penjual.id_penjual = transaksi_iuran.id_penjual')
+            ->where('transaksi_iuran.tanggal', $tanggal)
+            ->where('penjual.status_aktif', 'Aktif')
+            ->where('penjual.deleted_at', null)
+            ->groupBy('transaksi_iuran.id_penjual')
             ->get()
             ->getResultArray();
 
