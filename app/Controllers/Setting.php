@@ -66,10 +66,12 @@ class Setting extends BaseController
                 $oldPaths[] = $current[$dbField] ?? null;
             }
 
-            if ($this->model->find(1) === null) {
-                $this->model->insert($data);
-            } else {
-                $this->model->update(1, $data);
+            $saved = $this->model->find(1) === null
+                ? $this->model->insert($data)
+                : $this->model->update(1, $data);
+
+            if ($saved === false) {
+                throw new RuntimeException('Setting aplikasi gagal disimpan ke database. Silakan coba kembali.');
             }
         } catch (RuntimeException $e) {
             foreach ($newPaths as $path) {
@@ -79,6 +81,7 @@ class Setting extends BaseController
             return redirect()->back()->withInput()->with('error', $e->getMessage());
         }
 
+        // File lama baru boleh dibersihkan setelah data path baru berhasil disimpan.
         foreach ($oldPaths as $path) {
             $uploader->hapusLama($path);
         }
