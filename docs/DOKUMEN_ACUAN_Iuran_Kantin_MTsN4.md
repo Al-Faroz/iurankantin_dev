@@ -1,368 +1,608 @@
-# DOKUMEN ACUAN
+# Dokumen Acuan Aplikasi Iuran Kantin MTsN 4 Jombang
 
-## Aplikasi Pencatatan Iuran Kantin — MTsN 4 Jombang
+Dokumen ini adalah **baseline utama** aplikasi Iuran Kantin MTsN 4 Jombang. Isinya menggambarkan tujuan, aturan bisnis, arsitektur, struktur data, fitur, keamanan, UI/UX, dan cara operasional aplikasi dalam kondisi saat ini. Dokumen ini bukan catatan revisi dan bukan changelog.
 
-**Versi:** FINAL v8 — semua poin terkonfirmasi, project sudah live di repo GitHub, siap dikerjakan penuh oleh ChatGPT
+## 1. Tujuan dan Ruang Lingkup
 
----
+Aplikasi digunakan untuk pencatatan **iuran penjual/pedagang kantin kepada madrasah**, pengeluaran operasional kantin, setoran kas kepada pimpinan, pelaporan kas, serta pengelolaan kartu anggota kantin.
 
-## 1. GAMBARAN UMUM
+Aplikasi bukan aplikasi kasir/POS, bukan aplikasi jual-beli kantin, dan bukan aplikasi iuran siswa. Sistem juga tidak mengelola piutang atau tunggakan penjual; transaksi iuran hanya dicatat ketika pembayaran benar-benar diterima.
 
-Aplikasi ini **bukan** aplikasi kasir/jual-beli kantin, dan **bukan** iuran dari siswa. Ini adalah aplikasi pencatatan **iuran dari penjual/pedagang** yang berjualan di lingkungan kantin madrasah kepada pihak madrasah, sekaligus pencatatan kas kantin secara sederhana (pemasukan iuran, pengeluaran operasional, dan setoran ke pimpinan).
+Tujuan utama aplikasi:
 
-**Tujuan aplikasi:**
+- mencatat pemasukan iuran harian penjual kantin;
+- mencatat pengeluaran operasional kantin;
+- mencatat setoran kas yang sudah benar-benar diserahkan kepada pimpinan;
+- menghitung saldo kas berjalan;
+- menyediakan laporan dan export Excel;
+- menyediakan form kontrol manual mingguan;
+- menyediakan kartu anggota kantin dan verifikasi QR.
 
-- Mencatat pemasukan iuran harian dari tiap penjual kantin
-- Mencatat pengeluaran terkait operasional kantin
-- Mencatat setoran kas ke pimpinan madrasah
-- Menyediakan rekap/laporan kas kantin untuk pimpinan
+## 2. Role dan Hak Akses
 
-**Bukan bagian dari scope:**
+Aplikasi menggunakan dua role tetap.
 
-- Tidak ada fitur piutang/tunggakan (siapa belum bayar) — cukup catat yang sudah bayar
-- Tidak terintegrasi dengan SisisFour (Absensi/BK) — berdiri sendiri, database terpisah
-
----
-
-## 2. ARSITEKTUR & STACK TEKNIS
-
-Mengikuti konvensi yang sudah baku dari proyek-proyek sebelumnya (SisisFour), untuk konsistensi:
-
-| Aspek | Keputusan |
+| Role | Hak akses |
 | --- | --- |
-| Framework | CodeIgniter 4, **standard MVC** (flat Controllers/Models/Views, bukan HMVC) |
-| UI Theme | Sneat Free (Bootstrap 5) |
-| Library pendukung | jQuery, DataTables (Responsive plugin), SweetAlert2, Dompdf (untuk bukti setoran & form cetak mingguan), GD/Intervention Image (kompresi foto nota otomatis <500 KB; render kartu anggota ke JPG), Endroid QR Code / phpqrcode (generate QR kartu anggota), html5-qrcode / jsQR (scan QR via kamera browser, client-side JS — solusi karena banyak Android tidak punya scanner QR bawaan) |
-| Asset | Semua file lokal di `assets/`, tidak pakai CDN |
-| Struktur folder | `public/` dipindah ke root project (kompatibel shared hosting), `.htaccess` proteksi untuk `app/`, `writable/`, `vendor/`, `.env` |
-| Database | Migrations untuk skema, Seeders untuk data referensi (kategori penjual, kategori pengeluaran) |
-| Session | DB session (bukan file-based) |
-| Naming | Tidak boleh ada file `index.php` di views; views `{modul}_{aksi}.php`; controller PascalCase; model `{Nama}Model.php`; service `{Nama}Service.php` |
-| Komentar kode | Bahasa Indonesia |
-| Git | Kerja langsung di `main`, `.gitignore` standar CI4 |
-| Database name | `iuran_dev` |
-| Dev baseURL | `http://localhost/iuran_dev` |
+| **Operator** | Mengelola master data, user, setting, input/koreksi transaksi, setoran, kartu anggota, scanner QR, dashboard, laporan, PDF, dan export Excel. |
+| **Pimpinan** | Read-only untuk Dashboard dan seluruh Laporan. Tidak memiliki akses ke route input/edit/hapus/master/setting/user. |
 
----
+Hak akses tulis tidak hanya disembunyikan di UI, tetapi dilindungi route dengan filter Operator. Status dan role user aktif divalidasi kembali terhadap database pada request terproteksi agar perubahan role/nonaktif berlaku tanpa menunggu session kedaluwarsa.
 
-## 3. ROLE & HAK AKSES
+## 3. Arsitektur dan Stack Teknis
 
-Aplikasi ini sederhana, hanya 2 role:
-
-| Role | Hak Akses |
+| Aspek | Standar aplikasi |
 | --- | --- |
-| **Operator** (merangkap Admin) | Full akses: kelola master data penjual, kategori, input transaksi iuran, input pengeluaran, catat setoran, lihat semua laporan |
-| **Pimpinan** | Read-only: lihat dashboard, rekap kas, laporan iuran/pengeluaran/setoran — tidak bisa input/edit apa pun |
+| Backend | PHP 8.2+ dan CodeIgniter 4, standard MVC/flat structure |
+| Database | MySQL/MariaDB, charset `utf8mb4` |
+| UI | Sneat Free, Bootstrap 5 |
+| Tabel | DataTables + Responsive |
+| Interaksi | jQuery, SweetAlert2 |
+| Grafik | ApexCharts |
+| PDF | Dompdf |
+| Excel | PhpSpreadsheet |
+| Gambar | GD + Intervention Image |
+| QR | Endroid QR Code |
+| Scanner | jsQR lokal + BarcodeDetector fallback bila tersedia |
+| Session | CodeIgniter Database Session (`ci_sessions`) |
+| Timezone aplikasi | `Asia/Jakarta` |
+| Asset runtime | Lokal, tanpa CDN |
+| Routing | Explicit routes; Auto Routing dinonaktifkan |
+| Deployment | Front controller `index.php` berada di root project untuk shared hosting |
 
-Tidak perlu RBAC matrix kompleks seperti SisisFour — cukup 2 role hardcoded, tidak perlu menu-editable.
+Struktur controller, model, service, dan view mengikuti MVC standar CodeIgniter 4. View menggunakan penamaan spesifik seperti `penjual_index.php`, `penjual_form.php`, `laporan_rekap_kas.php`; tidak menggunakan view generik `index.php`.
 
----
+## 4. Keamanan Dasar
 
-## 4. STRUKTUR DATABASE (Draft Skema)
+Ketentuan keamanan aplikasi:
 
-### 4.1 `penjual` (Master Data Penjual)
+- seluruh route aplikasi didefinisikan secara eksplisit;
+- Auto Routing dinonaktifkan;
+- seluruh aksi tulis menggunakan HTTP POST dan dilindungi CSRF;
+- session login disimpan di database;
+- password disimpan menggunakan `password_hash()` dan diverifikasi dengan `password_verify()`;
+- session ID diregenerasi setelah login berhasil;
+- login dibatasi dengan throttling per IP;
+- filter login memvalidasi kembali akun aktif ke database;
+- route Operator memvalidasi role terkini dari database;
+- Secure Headers CodeIgniter aktif secara global;
+- detail error database tidak ditampilkan pada environment production;
+- production wajib HTTPS, secure cookie, HttpOnly cookie, dan SameSite Lax;
+- `.htaccess` root memblokir akses langsung ke `app/`, `vendor/`, `writable/`, `tests/`, `docs/`, `.env`, Composer files, dan file sensitif lain;
+- `uploads/.htaccess` menonaktifkan directory listing dan memblokir eksekusi ekstensi script umum;
+- PDF menonaktifkan remote resource dan eksekusi PHP;
+- export Excel memperlakukan input pengguna sebagai teks literal untuk mencegah formula injection.
 
-| Field | Tipe | Keterangan |
-| --- | --- | --- |
-| id_penjual | INT PK | |
-| nama_penjual | VARCHAR | |
-| id_golongan | INT FK | ke `golongan_penjual` |
-| no_hp | VARCHAR | nullable |
-| lokasi_lapak | VARCHAR | nullable, mis. "Lapak A3" |
-| status_aktif | ENUM(Aktif/Nonaktif) | |
-| tanggal_daftar | DATE | |
-| kode_kartu | VARCHAR | unik, auto-generate saat kartu pertama kali dibuat, ditampilkan di kartu |
-| kode_verifikasi | VARCHAR | unik, random string, di-encode ke QR untuk verifikasi kartu |
-| created_at, updated_at | DATETIME | |
+## 5. Struktur Database Operasional
 
-### 4.2 `golongan_penjual` (Master Golongan — 3 golongan, nominal tetap)
+### 5.1 `golongan_penjual`
 
-| Field | Tipe | Keterangan |
-| --- | --- | --- |
-| id_golongan | INT PK | |
-| nama_golongan | VARCHAR | Golongan 1 / 2 / 3 |
-| nominal_iuran | DECIMAL | Gol 1 = 10.000, Gol 2 = 7.500, Gol 3 = 5.000 — dipakai sebagai prefill di form bulk insert, operator tetap bisa override manual per transaksi |
+Master golongan penjual dan nominal iuran default.
 
-### 4.3 `transaksi_iuran` (Pemasukan)
+Field utama:
 
-| Field | Tipe | Keterangan |
-| --- | --- | --- |
-| id_transaksi | INT PK | |
-| id_penjual | INT FK | |
-| tanggal | DATE | |
-| nominal | DECIMAL | diisi manual oleh operator saat input (prefill dari nominal_iuran golongan, tapi bisa diubah) |
-| keterangan | VARCHAR | nullable |
-| id_operator | INT FK | siapa yang input, untuk jejak/log |
-| created_at | DATETIME | |
+- `id_golongan` — primary key;
+- `nama_golongan`;
+- `nominal_iuran` — nominal default untuk Input Iuran;
+- `deleted_at`, `created_at`, `updated_at`.
 
-### 4.4 `kategori_pengeluaran` (Master Kategori Pengeluaran)
+Master menggunakan soft delete. Golongan yang masih digunakan penjual aktif tidak boleh diarsipkan.
 
-| Field | Tipe | Keterangan |
-| --- | --- | --- |
-| id_kategori_keluar | INT PK | |
-| nama_kategori | VARCHAR | tidak ada data awal/seed — operator isi sendiri lewat menu Master Kategori Pengeluaran |
+### 5.2 `kategori_pengeluaran`
 
-### 4.5 `transaksi_pengeluaran`
+Master kategori pengeluaran.
 
-| Field | Tipe | Keterangan |
-| --- | --- | --- |
-| id_pengeluaran | INT PK | |
-| tanggal | DATE | |
-| id_kategori_keluar | INT FK | |
-| nominal | DECIMAL | |
-| keterangan | VARCHAR | |
-| bukti_nota | VARCHAR | nullable, path file upload foto nota — opsional, kalau diupload otomatis dikompresi ke bawah 500 KB |
-| id_operator | INT FK | |
-| created_at | DATETIME | |
+Field utama:
 
-### 4.6 `setoran_pimpinan`
+- `id_kategori_keluar` — primary key;
+- `nama_kategori`;
+- `deleted_at`, `created_at`, `updated_at`.
 
-| Field | Tipe | Keterangan |
-| --- | --- | --- |
-| id_setoran | INT PK | |
-| tanggal_form | DATE | tanggal saat form/bukti dibuat |
-| periode_awal | DATE | tanggal awal periode setoran (mis. rentang iuran yang disetorkan) |
-| periode_akhir | DATE | tanggal akhir periode setoran |
-| nominal | DECIMAL | besar setoran |
-| keterangan | VARCHAR | nullable |
-| id_operator | INT FK | yang menyetor/input |
-| created_at | DATETIME | |
+Kategori diisi Operator dan menggunakan soft delete.
 
-### 4.7 `users`
+### 5.3 `users`
 
-| Field | Tipe | Keterangan |
-| --- | --- | --- |
-| id_user | INT PK | |
-| nama | VARCHAR | |
-| username | VARCHAR | |
-| password | VARCHAR (hashed) | |
-| role | ENUM(Operator/Pimpinan) | |
-| status_aktif | ENUM | |
+Akun aplikasi.
 
-### 4.8 `setting` (baris tunggal, data madrasah & branding)
+Field utama:
 
-| Field | Tipe | Keterangan |
-| --- | --- | --- |
-| nama_madrasah | VARCHAR | header PDF bukti setoran & form mingguan |
-| alamat_madrasah | VARCHAR | nullable |
-| logo | VARCHAR | path upload logo madrasah |
-| background_kartu_depan | VARCHAR | path upload background sisi depan Kartu Anggota Kantin |
-| background_kartu_belakang | VARCHAR | path upload background sisi belakang Kartu Anggota Kantin |
-| updated_at | DATETIME | |
+- `id_user` — primary key;
+- `nama`;
+- `username` — unik;
+- `password` — hash password;
+- `role` — `Operator` atau `Pimpinan`;
+- `status_aktif` — `Aktif` atau `Nonaktif`;
+- `created_at`, `updated_at`.
 
----
+Operator yang sedang dipakai login tidak boleh menonaktifkan atau menurunkan role akunnya sendiri melalui form User.
 
-## 5. MODUL & FITUR
+### 5.4 `penjual`
 
-1. **Login** — 2 role (Operator, Pimpinan)
-2. **Master Penjual** — CRUD data penjual, assign golongan
-3. **Master Golongan Penjual** — CRUD 3 golongan + nominal iuran tetap (10.000 / 7.500 / 5.000)
-4. **Master Kategori Pengeluaran** — CRUD kategori pengeluaran
-5. **Input Iuran (Bulk Insert)** — form harian menampilkan daftar SEMUA penjual sekaligus dalam satu tabel, urutan: golongan iuran tertinggi dulu (Gol 1 → Gol 2 → Gol 3), lalu nama ascending di dalam tiap golongan. Tiap baris punya input bar nominal (prefill dari nominal_iuran golongan, bisa diubah manual per baris). Operator isi nominal yang bayar saja (baris yang tidak bayar dikosongkan/skip), lalu simpan sekaligus dalam satu submit
-6. **Input Pengeluaran** — pilih kategori pengeluaran → nominal → keterangan → upload foto nota (opsional, kalau diupload otomatis dikompresi ke bawah 500 KB) → simpan
-7. **Setoran ke Pimpinan** — 2 tahap terpisah:
-   - **Cetak Form Setoran (PDF)**: operator isi tanggal form, periode awal, periode akhir, dan besar setoran → cetak PDF (format default, header dari Setting data madrasah, tanda tangan dikosongkan) → dipakai operator sebagai bukti fisik saat menyerahkan dana ke pimpinan. Tahap ini murni untuk cetak, belum tersimpan ke database
-   - **Input Setoran (simpan ke database)**: setelah dana benar-benar diserahkan ke pimpinan, operator input ulang data setoran yang sama (tanggal form, periode awal, periode akhir, nominal, keterangan) ke aplikasi agar tercatat resmi di `setoran_pimpinan` dan masuk perhitungan saldo kas
-8. **Cetak Form Iuran Mingguan (PDF)** — generate form kosong berisi daftar penjual (urutan sama seperti form bulk insert: golongan tertinggi dulu, nama ascending) dengan kolom tanggal Sabtu, Minggu, Senin, Selasa, Rabu, Kamis (6 hari), ditambah kolom **Total per Penjual** di sisi kanan. Dipakai operator sebagai lembar pencatatan manual di lapangan sebelum diinput ke aplikasi. Header sama seperti bukti setoran (ambil dari Setting data madrasah)
-9. **Kartu Anggota Kantin** — kartu digital per penjual, tanpa foto (nama & data teks saja), dengan QR code untuk verifikasi & shortcut:
-   - **Generate kartu**: sistem auto-generate `kode_kartu` & `kode_verifikasi` untuk tiap penjual (sekali generate, dipakai terus kecuali di-generate ulang manual)
-   - **Layout/posisi elemen** — mengikuti persis template referensi `kartu-pelajar.zip` (canvas 1011×638px, elemen posisi absolut), field disesuaikan ke data penjual:
+Master penjual/pedagang kantin.
 
-     | Elemen template asli | Posisi (left, top) | Dipakai untuk kartu anggota kantin |
-     | --- | --- | --- |
-     | `.photo-box` (foto 3:4) | 760, 73 | **Dihapus** — tidak ada foto penjual |
-     | `.qr-box` (QR 1:1) | 810, 375 | Tetap — QR verifikasi (encode kode_verifikasi) |
-     | `.qr-caption` | 790, 505 | Tetap — teks `kode_kartu` |
-     | `.nama` | 40, 175 | Tetap — `nama_penjual` |
-     | `.meta-col` (grid 2 kolom, 4 item) | 40, 340 | Tetap, isi 4 item: **Golongan, Lokasi/Lapak, No. HP, Tanggal Bergabung** (gantikan NIS/Kelas/Jenis Kelamin/Tahun Ajaran) |
-     | `.ttl` | 40, 460 | **Tidak dipakai** (dikosongkan) — tidak ada data setara (tempat tanggal lahir) di penjual |
-     | `.alamat` | 40, 490 | **Tidak dipakai** (dikosongkan) — tidak ada data setara |
+Field utama:
 
-     *(Kalau mau baris `.ttl`/`.alamat` diisi sesuatu juga — misal Status Aktif atau teks footer statis — tinggal bilang, tinggal disesuaikan.)*
-   - **Kegunaan QR (kombinasi, tergantung siapa yang scan)**:
-     - **Belum login** (satpam, guru piket, pimpinan, siapa pun scan pakai HP) → tampil **halaman verifikasi publik** read-only tanpa login, berisi: Nama Penjual, Golongan, Status (Aktif/Nonaktif). Tidak menampilkan data sensitif (no HP, riwayat iuran, dll) — fungsinya sekadar cek cepat "penjual ini terdaftar resmi atau tidak", status otomatis ikut berubah kalau penjual dinonaktifkan
-     - **Sudah login sebagai Operator** → otomatis redirect ke **halaman profil/detail penjual di dalam aplikasi** (bukan halaman publik), berisi data lengkap + riwayat transaksi iuran penjual itu — jadi scan kartu bisa dipakai operator sebagai shortcut cari penjual tanpa perlu cari manual, misalnya untuk input iuran susulan di luar form bulk harian
-     - Logic pembeda dua tampilan di atas cukup 1 controller/route yang sama, dicek dari session login aktif atau tidak
-   - **Scan QR built-in di aplikasi** (bukan andalkan aplikasi kamera bawaan HP): tersedia menu "Scan Kartu" khusus untuk Operator, membuka kamera HP langsung lewat browser (pakai library JS seperti html5-qrcode/jsQR via `getUserMedia`), decode QR di sisi client, lalu langsung diarahkan ke halaman profil penjual — ini jadi solusi karena banyak HP Android (terutama yang murah/lama) tidak punya fitur scan QR otomatis di kamera bawaannya, kendala yang sama pernah dialami di aplikasi sebelumnya. **Catatan teknis: fitur kamera browser (`getUserMedia`) butuh koneksi HTTPS di production — dikonfirmasi hosting sudah support SSL** (sama seperti hosting SisisFour)
-   - **Background/desain — depan & belakang, upload dinamis lewat Setting** (bukan file statis hardcode, sama seperti pola Kartu Pelajar Digital di SisisFour): kartu punya 2 sisi seperti kartu fisik biasa —
-     - **Sisi Depan**: berisi data dinamis (nama, golongan, lokasi/lapak, no. HP, tanggal bergabung, QR) sesuai tabel mapping di atas, di-overlay di atas gambar background depan
-     - **Sisi Belakang**: statis, tanpa data dinamis — biasanya berisi alamat madrasah/kontak/syarat kartu, sepenuhnya mengikuti gambar background belakang yang diupload
-     - Template awal (HTML/CSS, canvas 1011×638px, posisi elemen sesuai tabel mapping) **sudah dibuat** sebagai draft/starting point (lihat file terlampir), background di dalamnya tinggal diganti setelah operator upload lewat Setting
-   - **Download satuan**: operator pilih salah satu dari 2 opsi tombol per penjual — **"Download Depan"** (1 file JPG, sisi depan saja) atau **"Download Lengkap"** (ZIP berisi 2 file JPG: depan + belakang)
-   - **Download bulk**: sama seperti download satuan, ada 2 opsi — **"Download Semua (Depan)"** (1 ZIP berisi JPG depan semua penjual aktif) atau **"Download Semua (Lengkap)"** (1 ZIP berisi JPG depan+belakang semua penjual aktif)
-   - Render JPG dilakukan server-side (HTML/CSS template → image, atau digambar langsung pakai GD/Imagick di atas background)
-10. **Setting** — data madrasah (nama madrasah, alamat, upload logo) yang dipakai sebagai header di PDF (bukti setoran, form mingguan); **tambahan: upload Background Kartu Depan & Background Kartu Belakang** untuk Kartu Anggota Kantin (format gambar, dinamis, bisa diganti kapan saja tanpa ubah kode)
-11. **Dashboard** — saldo kas berjalan (Total Iuran − Total Pengeluaran − Total Setoran), grafik tren harian/bulanan, ringkasan hari ini
-12. **Laporan**
-    - Laporan Iuran per periode (tanggal/bulan), filter per penjual/golongan
-    - Laporan Pengeluaran per periode, filter per kategori
-    - Laporan Setoran per periode
-    - Rekap Kas (buku kas gabungan: semua pemasukan-pengeluaran-setoran berurutan tanggal, dengan saldo berjalan)
-    - Export Excel untuk semua laporan di atas
+- `id_penjual` — primary key;
+- `nama_penjual`;
+- `id_golongan` — FK ke `golongan_penjual`;
+- `no_hp` — nullable;
+- `lokasi_lapak` — nullable;
+- `alamat` — nullable, maksimal 255 karakter;
+- `status_aktif` — `Aktif` atau `Nonaktif`;
+- `tanggal_daftar`;
+- `kode_kartu` — kode kartu persisten dan unik;
+- `kode_verifikasi` — token verifikasi QR unik;
+- `deleted_at`, `created_at`, `updated_at`.
 
----
+Penjual menggunakan soft delete agar histori transaksi tetap tersimpan.
 
-## 6. ALUR KERJA (Business Flow)
+### 5.5 `setting`
 
-**Alur mingguan (persiapan):**
+Singleton setting aplikasi, menggunakan baris `id_setting = 1`.
 
-1. Operator cetak Form Iuran Mingguan (PDF) di awal minggu → dipakai untuk mencatat manual iuran tiap penjual per hari di lapangan
+Field utama:
 
-**Alur harian:**
+- `nama_madrasah`;
+- `alamat_madrasah`;
+- `logo`;
+- `background_kartu_depan`;
+- `background_kartu_belakang`;
+- `updated_at`.
 
-1. Operator input iuran lewat form bulk insert (satu tabel semua penjual, urut golongan tertinggi → nama ascending), isi nominal hanya untuk penjual yang bayar hari itu, submit sekaligus (data dari catatan manual di form mingguan dipindah ke sini)
-2. Operator input pengeluaran jika ada (sesuai kebutuhan, tidak harus tiap hari)
-3. Saat mau menyetor ke pimpinan: operator isi form (tanggal form, periode awal, periode akhir, besar setoran) → cetak PDF → bawa fisik dana sesuai nominal di form → serahkan ke pimpinan → baru setelah itu operator input data yang sama ke aplikasi (tersimpan resmi di database)
-4. Saldo kas = akumulasi (Iuran masuk) − (Pengeluaran) − (Setoran ke pimpinan)
+### 5.6 `transaksi_iuran`
 
-**Alur pimpinan:**
+Pemasukan iuran penjual.
 
-- Login → lihat dashboard saldo & tren → buka laporan detail sesuai kebutuhan → export jika perlu
+Field utama:
 
----
+- `id_transaksi` — primary key;
+- `id_penjual` — FK ke `penjual`;
+- `tanggal`;
+- `nominal`;
+- `keterangan` — nullable;
+- `id_operator` — FK ke `users`;
+- `created_at`.
 
-## 7. KONVENSI TEKNIS
+Transaksi tidak menggunakan soft delete. Koreksi data yang salah dilakukan dengan hard delete melalui menu Koreksi Transaksi.
 
-Sama seperti proyek CI4 lain milik madrasah ini:
+### 5.7 `transaksi_pengeluaran`
 
-- Soft delete untuk master data (`penjual`, `golongan_penjual`, `kategori_pengeluaran`) agar histori transaksi tidak rusak; hard delete untuk transaksi yang salah input (dengan konfirmasi)
-- DataTables Responsive untuk semua tabel data
-- Client-side pagination
-- Filter aktif harus diikuti export (export sesuai data yang difilter, bukan semua data)
+Pengeluaran operasional kas kantin.
 
----
+Field utama:
 
-## 8. STRUKTUR FOLDER & FILE
+- `id_pengeluaran` — primary key;
+- `tanggal`;
+- `id_kategori_keluar` — FK ke kategori;
+- `nominal`;
+- `keterangan` — nullable;
+- `bukti_nota` — path foto bukti, nullable;
+- `id_operator`;
+- `created_at`.
 
-Berdasarkan aset Sneat (`assets.zip`) dan referensi halaman demo (`html.zip`) yang dikirim, serta konvensi CI4 standard MVC yang sudah dikunci di Bab 2 & 7:
+### 5.8 `setoran_pimpinan`
 
-```
-iuran-kantin/
-├── app/
-│   ├── Config/                     # Config bawaan CI4 (Database, Routes, App, dst)
-│   ├── Controllers/
-│   │   ├── Auth.php                 # Login/logout
-│   │   ├── Dashboard.php
-│   │   ├── Penjual.php              # Master Penjual
-│   │   ├── GolonganPenjual.php      # Master Golongan (3 golongan, nominal tetap)
-│   │   ├── KategoriPengeluaran.php  # Master Kategori Pengeluaran
-│   │   ├── Iuran.php                # Input iuran (bulk insert)
-│   │   ├── Pengeluaran.php          # Input pengeluaran + bukti nota
-│   │   ├── Setoran.php              # Cetak form setoran (PDF) + input setoran ke DB
-│   │   ├── KartuAnggota.php         # Generate & download kartu (satuan/bulk)
-│   │   ├── Verifikasi.php           # Halaman scan/verifikasi QR (publik & redirect internal)
-│   │   ├── Laporan.php              # Semua laporan + export Excel
-│   │   ├── Setting.php              # Data madrasah (nama, alamat, logo)
-│   │   └── User.php                 # Kelola akun Operator/Pimpinan
-│   ├── Models/
-│   │   ├── PenjualModel.php
-│   │   ├── GolonganPenjualModel.php
-│   │   ├── KategoriPengeluaranModel.php
-│   │   ├── TransaksiIuranModel.php
-│   │   ├── TransaksiPengeluaranModel.php
-│   │   ├── SetoranPimpinanModel.php
-│   │   ├── SettingModel.php
-│   │   └── UserModel.php
-│   ├── Services/                    # Logic berat dipisah dari Controller
-│   │   ├── IuranService.php         # Proses simpan bulk insert
-│   │   ├── SetoranService.php       # Generate PDF form setoran
-│   │   ├── KartuAnggotaService.php  # Generate kode kartu, render JPG, bundling ZIP
-│   │   ├── QrService.php            # Generate QR, resolve logic verifikasi vs redirect
-│   │   ├── PdfService.php           # Wrapper Dompdf (bukti setoran, form mingguan)
-│   │   └── LaporanService.php       # Query rekap kas & export Excel (PhpSpreadsheet)
-│   ├── Filters/
-│   │   ├── AuthFilter.php           # Wajib login
-│   │   └── OperatorOnlyFilter.php   # Blokir Pimpinan dari halaman input/edit
-│   ├── Views/                       # Flat, naming {modul}_{aksi}.php — pecahan dari html.zip (Sneat)
-│   │   ├── layout_header.php        # <head>, sidebar menu, navbar (dari index.html Sneat)
-│   │   ├── layout_footer.php        # footer + vendor JS includes
-│   │   ├── auth_login.php           # dari auth-login-basic.html
-│   │   ├── dashboard_index.php      # dari index.html (disederhanakan sesuai Bab 5)
-│   │   ├── penjual_index.php        # dari tables-basic.html + DataTables
-│   │   ├── penjual_form.php         # dari form-layouts-vertical.html
-│   │   ├── golongan_index.php
-│   │   ├── kategori_pengeluaran_index.php
-│   │   ├── iuran_bulk.php           # form bulk insert khas (bukan dari template standar)
-│   │   ├── pengeluaran_index.php
-│   │   ├── pengeluaran_form.php
-│   │   ├── setoran_cetak_form.php   # form isi tanggal form/periode/nominal sebelum cetak PDF
-│   │   ├── setoran_index.php        # daftar setoran tersimpan
-│   │   ├── setoran_input.php        # form input resmi ke DB (tahap 2)
-│   │   ├── kartu_index.php          # daftar penjual + tombol download satuan/bulk
-│   │   ├── kartu_scan.php           # halaman scan QR built-in (kamera browser)
-│   │   ├── verifikasi_publik.php    # halaman publik hasil scan (belum login)
-│   │   ├── laporan_iuran.php
-│   │   ├── laporan_pengeluaran.php
-│   │   ├── laporan_setoran.php
-│   │   ├── laporan_rekap_kas.php
-│   │   ├── setting_index.php
-│   │   ├── user_index.php
-│   │   ├── pdf_bukti_setoran.php    # template khusus untuk Dompdf (bukan halaman biasa)
-│   │   ├── pdf_form_mingguan.php    # template khusus untuk Dompdf
-│   │   ├── kartu_template.php       # template render kartu anggota (HTML → JPG)
-│   │   └── errors/                  # 404/403 custom (opsional, bawaan CI4 bisa dipakai)
-│   └── Database/
-│       ├── Migrations/              # 1 file per tabel (penjual, golongan_penjual, dst)
-│       └── Seeds/                   # akun awal Operator/Pimpinan; TIDAK ada seed kategori_pengeluaran (diisi manual)
-├── assets/                          # dari assets.zip — Sneat theme, tracked di Git
-│   ├── css/  (custom.css, demo.css)
-│   ├── js/   (main.js, custom.js, config.js, dst)
-│   ├── vendor/
-│   │   ├── libs/ (datatables, sweetalert2, select2, apex-charts, jquery, dst)
-│   │   ├── css/  (core.css, pages/)
-│   │   └── js/   (bootstrap.js, menu.js, helpers.js)
-│   ├── img/  (illustrations, icons, backgrounds, favicon, avatars)
-│   └── fonts/ (Poppins)
-├── assets-app/                      # ASET KHUSUS APLIKASI INI (baru, di luar tema Sneat)
-│   ├── qrcode-lib/                  # html5-qrcode / jsQR (untuk scan QR built-in)
-│   └── kartu-background/            # file background kartu anggota kantin (menyusul)
-├── uploads/                         # dinamis, TIDAK tracked Git, punya .htaccess blokir eksekusi script
-│   ├── bukti_nota/                  # foto nota pengeluaran (opsional, hasil kompresi <500KB)
-│   └── branding/                    # logo madrasah dari menu Setting
-├── writable/                        # bawaan CI4 (cache, logs, session, dst)
-├── vendor/                          # composer packages (termasuk Dompdf, PhpSpreadsheet, Endroid QR Code)
-├── index.php                        # dipindah dari public/ ke root
-├── .htaccess                        # dipindah dari public/ ke root
-├── .env
-├── .gitignore
-├── composer.json
-└── README.md                        # instruksi deploy ke hosting
+Setoran kas yang sudah benar-benar diserahkan kepada pimpinan.
+
+Field utama:
+
+- `id_setoran` — primary key;
+- `tanggal_form`;
+- `periode_awal`;
+- `periode_akhir`;
+- `nominal`;
+- `keterangan` — nullable;
+- `bukti_setoran` — path foto bukti setoran;
+- `id_operator`;
+- `created_at`.
+
+`bukti_setoran` wajib untuk input Setoran Resmi baru. Record lama yang dibuat sebelum fitur bukti tersedia dapat memiliki nilai `NULL`.
+
+### 5.9 `ci_sessions`
+
+Tabel session CodeIgniter 4. Session aplikasi tidak menggunakan file session sebagai penyimpanan utama.
+
+### 5.10 Catatan pengelolaan schema
+
+Migration aplikasi saat ini mencakup migration bisnis awal, tabel session, dan penambahan `alamat` pada `penjual` sampai migration `100010`.
+
+Kolom `bukti_setoran` pada `setoran_pimpinan` adalah perubahan schema operasional yang diterapkan **manual melalui SQL/phpMyAdmin**, sesuai metode deployment hosting yang tidak memiliki terminal. SQL yang diperlukan pada database yang belum memiliki kolom tersebut:
+
+```sql
+ALTER TABLE `setoran_pimpinan`
+ADD COLUMN `bukti_setoran` VARCHAR(255) NULL
+AFTER `keterangan`;
 ```
 
-**Catatan migrasi dari referensi:**
+Jangan membuat atau menjalankan seeder pada database operasional existing hanya untuk menerapkan perubahan schema.
 
-- Isi `assets.zip` dipakai apa adanya sebagai folder `assets/` di root project (tidak diubah struktur internalnya), supaya update tema Sneat di masa depan gampang tinggal timpa folder ini.
-- File-file di `html.zip` **tidak dipakai langsung** sebagai view — tiap halaman dipecah dan disusun ulang mengikuti naming convention `{modul}_{aksi}.php`, bagian yang berulang (sidebar menu, navbar, footer, script includes) dipisah ke `layout_header.php` & `layout_footer.php` supaya tidak duplikasi di 20+ file view.
+## 6. Master Penjual
 
----
+Operator dapat menambah, melihat, mengedit, dan mengarsipkan Penjual. Form mencakup nama, golongan, nomor HP, lokasi/lapak, alamat, status, dan tanggal bergabung.
 
-## 9. KETENTUAN UI/UX
+Daftar Penjual:
 
-Berlaku untuk seluruh halaman aplikasi, mengacu ke komponen Sneat yang sudah tersedia di `html.zip`:
+- diurutkan berdasarkan nominal golongan terbesar, lalu nama A–Z;
+- menampilkan alamat secara ringkas bersama identitas penjual;
+- mendukung DataTables Responsive;
+- memiliki Export Excel Data Penjual.
 
-| Kebutuhan Halaman | Komponen Sneat yang Dipakai | Catatan |
-| --- | --- | --- |
-| Layout dasar (sidebar + navbar + konten) | `index.html` (struktur `layout-wrapper` > `layout-menu` + `layout-page`) | Sidebar collapsible ke hamburger di layar kecil — wajib, karena mayoritas akses dari HP Android |
-| Login | `auth-login-basic.html` | Tanpa fitur "Register" (akun dibuat manual oleh Operator lewat menu User) |
-| Tabel data (Penjual, Laporan, dst) | `tables-basic.html` + DataTables (vendor/libs/datatables) | Wajib pakai plugin **Responsive** (kolom collapse jadi detail expand di layar kecil, bukan scroll horizontal) — sudah dikunci di Bab 7 |
-| Form tambah/edit | `form-layouts-vertical.html` | Halaman terpisah (bukan modal), konsisten dengan naming `_form.php`; dropdown yang datanya banyak (misal pilih penjual) pakai **Select2** biar bisa dicari |
-| Konfirmasi hapus/aksi penting | SweetAlert2 (bukan modal Bootstrap manual) | Dipakai juga untuk konfirmasi sebelum submit setoran (karena melibatkan uang) |
-| Notifikasi sukses/gagal | SweetAlert2 toast atau `ui-toasts.html` | Konsisten satu jenis saja di seluruh aplikasi, jangan campur SweetAlert2 & toast bawaan Bootstrap |
-| Dashboard ringkasan | `cards-basic.html` untuk kartu ringkasan (Total Iuran Hari Ini, Saldo Kas, dst) + Apex Charts untuk grafik tren | Grafik cukup 1 line/bar chart tren kas per bulan, tidak perlu banyak chart seperti dashboard analytics bawaan Sneat |
-| Status Aktif/Nonaktif, kategori, dsb | `ui-badges.html` | Konvensi warna: **Aktif = hijau (success)**, **Nonaktif = abu-abu (secondary)** — konsisten di semua tabel |
-| Form bulk insert iuran | Tidak ada padanan langsung di template Sneat — dibangun custom di atas `tables-basic.html`, tiap baris tabel diubah jadi input nominal (bukan teks statis) |
-| Halaman scan QR (`kartu_scan.php`) | Custom (kamera browser), pakai `layouts-blank.html` sebagai basis (tanpa sidebar/navbar) supaya area kamera lega, khususnya di layar HP kecil |
-| Halaman verifikasi publik (`verifikasi_publik.php`) | `layouts-blank.html` juga — halaman ringan, tanpa login, tanpa sidebar |
+Export Penjual berisi nama, golongan, nominal default, alamat, nomor HP, lokasi/lapak, status, tanggal bergabung, dan kode kartu. Karena merupakan master data dan bukan laporan periode, filename export Penjual tidak memakai rentang tanggal.
 
-**Prinsip umum:**
+## 7. Input Iuran Harian
 
-- **Mobile-first** — aplikasi ini didesain untuk dipakai sehari-hari lewat Chrome Android, jadi semua halaman input (terutama form bulk insert iuran) harus nyaman dipakai satu tangan/layar kecil, tombol submit selalu terlihat tanpa perlu scroll jauh
-- **Konsisten satu tema** — semua modul pakai palet warna & komponen Sneat yang sama, tidak bikin style custom yang menyimpang dari tema kecuali benar-benar perlu (kartu anggota, halaman scan QR)
-- **Read-only untuk Pimpinan** — halaman yang diakses Pimpinan (Dashboard, Laporan) menyembunyikan/menonaktifkan semua tombol aksi (tambah/edit/hapus/input), bukan sekadar dibatasi lewat route saja
-- **Aksesibilitas offline lambat** — asumsikan koneksi internet madrasah kadang lambat; asset harus lokal (sudah dikunci di Bab 2), hindari lazy-load berlebihan dari CDN eksternal
+Input Iuran menggunakan satu form bulk untuk seluruh Penjual aktif.
 
----
+Aturan UI dan proses:
 
-## 10. HAL YANG MASIH PERLU DIKONFIRMASI
+- Penjual diurutkan berdasarkan nominal golongan tertinggi lalu nama A–Z;
+- setiap Penjual memiliki switch `Bayar`;
+- nominal diprefill dari `nominal_iuran` golongan;
+- Operator boleh mengubah nominal transaksi yang dipilih;
+- Penjual yang tidak dicentang tidak disimpan;
+- minimal satu Penjual harus dipilih;
+- nominal terpilih harus lebih dari nol;
+- penyimpanan batch dilakukan dalam database transaction;
+- total Penjual terpilih dan total nominal dihitung langsung di UI;
+- layout mobile dibuat compact agar nyaman dipakai di Chrome Android.
 
-Tidak ada lagi — semua poin sudah terkonfirmasi. Dokumen ini final untuk mulai/lanjut coding (ChatGPT, repo `iurankantin_dev` sudah live dengan struktur sesuai Bab 8).
+## 8. Form Iuran Mingguan
+
+Operator dapat mencetak PDF form kontrol mingguan dengan tanggal awal wajib hari Sabtu.
+
+Form berisi enam hari:
+
+- Sabtu;
+- Minggu;
+- Senin;
+- Selasa;
+- Rabu;
+- Kamis;
+
+Terdapat kolom Total per Penjual. Daftar Penjual mengikuti urutan Input Iuran: nominal golongan tertinggi kemudian nama A–Z. Header menggunakan data madrasah dari Setting.
+
+## 9. Pengeluaran
+
+Input Pengeluaran mencakup:
+
+- tanggal;
+- kategori;
+- nominal;
+- keterangan opsional;
+- foto bukti nota opsional.
+
+Foto bukti menerima JPG/JPEG/PNG maksimal 10 MB sebelum kompresi. Server menurunkan resolusi maksimal dan mengonversi hasil menjadi JPG dengan target ukuran di bawah 500 KB. DataTable Pengeluaran menampilkan link untuk melihat bukti yang tersedia.
+
+Jika penyimpanan transaksi ke database gagal setelah file berhasil dibuat, file baru dibersihkan agar tidak menjadi file yatim.
+
+## 10. Setoran ke Pimpinan
+
+Setoran menggunakan dua tahap yang sengaja dipisahkan.
+
+### Tahap 1 — Cetak Form Setoran
+
+Operator mengisi tanggal form, periode awal, periode akhir, dan nominal, lalu menghasilkan PDF dua salinan pada satu A4. Tahap ini **tidak membuat transaksi database** dan belum mengurangi saldo kas.
+
+### Tahap 2 — Input Setoran Resmi
+
+Dilakukan setelah dana benar-benar diserahkan kepada pimpinan. Operator mengisi:
+
+- tanggal form;
+- periode awal;
+- periode akhir;
+- nominal;
+- keterangan opsional;
+- foto bukti setoran wajib untuk record baru.
+
+Foto menerima JPG/JPEG/PNG maksimal 10 MB sebelum kompresi, dikonversi menjadi JPG, dan ditargetkan di bawah 500 KB.
+
+Pada Edit Setoran:
+
+- bukti lama tetap digunakan bila tidak upload foto baru;
+- upload foto baru mengganti bukti lama setelah update database berhasil.
+
+Pada penghapusan permanen Setoran, file bukti ikut dibersihkan setelah transaksi database benar-benar berhasil dihapus.
+
+Bukti foto Setoran hanya digunakan pada form Setoran dan DataTable Setoran. Bukti tersebut tidak ditambahkan ke Laporan Setoran maupun export Excel Laporan Setoran.
+
+## 11. Koreksi Transaksi
+
+Koreksi hanya digunakan untuk transaksi yang benar-benar salah input dan bersifat hard delete.
+
+Menu memiliki filter periode dan tiga tab:
+
+- Iuran;
+- Pengeluaran;
+- Setoran.
+
+Koreksi Iuran menggunakan tampilan compact mirip Input Iuran. Data dikelompokkan per tanggal, diurutkan nominal golongan terbesar lalu nama A–Z, dan setiap transaksi memiliki aksi hapus eksplisit dengan konfirmasi SweetAlert2.
+
+Penghapusan Pengeluaran membersihkan bukti nota terkait. Penghapusan Setoran membersihkan bukti setoran terkait. File baru dibersihkan hanya setelah operasi database berhasil agar database dan filesystem tetap konsisten.
+
+## 12. Dashboard
+
+Urutan Dashboard adalah:
+
+1. Ringkasan Bulan Berjalan;
+2. Aksi Cepat Operator;
+3. Grafik Tren.
+
+Ringkasan Bulan Berjalan menampilkan:
+
+- Iuran Masuk bulan berjalan;
+- Pengeluaran bulan berjalan;
+- Setoran Pimpinan bulan berjalan;
+- Saldo Kas berjalan keseluruhan.
+
+Saldo Kas menggunakan rumus:
+
+```text
+Total seluruh Iuran - Total seluruh Pengeluaran - Total seluruh Setoran Resmi
+```
+
+Pada mobile, empat kartu ringkasan menggunakan grid 2×2 dan padding compact agar Aksi Cepat lebih cepat terlihat.
+
+Aksi Cepat Operator menyediakan:
+
+- Input Iuran Hari Ini;
+- Cetak Form Mingguan.
+
+Dashboard memiliki tiga grafik:
+
+- **Tren Arus Kas Masuk Bulan Berjalan** — total iuran per hari dari tanggal 1 sampai hari ini;
+- **Tren Arus Kas Masuk 6 Bulan Terakhir** — total iuran per bulan;
+- **Tren Arus Pengeluaran 6 Bulan Terakhir** — total pengeluaran per bulan.
+
+## 13. Laporan dan Export Excel
+
+Laporan tersedia untuk Operator dan Pimpinan:
+
+- Laporan Iuran;
+- Laporan Pengeluaran;
+- Laporan Setoran;
+- Rekap Kas.
+
+Filter tanggal default adalah tanggal 1 bulan berjalan sampai hari ini. Filter menerima tanggal kalender yang valid dan menukar tanggal awal/akhir bila urutannya terbalik.
+
+### Rekap Kas
+
+Rekap Kas menampilkan Saldo Awal, transaksi periode, dan Saldo Akhir secara kronologis.
+
+Khusus Iuran, Rekap Kas tidak menampilkan satu baris per nama Penjual. Semua Iuran pada tanggal yang sama digabung menjadi satu baris `Total Iuran Harian (n transaksi)`. Pengeluaran dan Setoran tetap tampil per transaksi.
+
+Saldo berjalan dihitung setelah setiap entry kronologis.
+
+### Export Excel
+
+Format tanggal export menggunakan `DD-MM-YYYY` secara konsisten. Filename seluruh laporan berbasis periode membawa tanggal filter, misalnya:
+
+```text
+laporan-iuran_01-09-2026_sd_16-09-2026.xlsx
+laporan-pengeluaran_01-09-2026_sd_16-09-2026.xlsx
+laporan-setoran_01-09-2026_sd_16-09-2026.xlsx
+rekap-kas_01-09-2026_sd_16-09-2026.xlsx
+```
+
+Data teks diekspor sebagai literal string agar tidak ditafsirkan Excel sebagai formula dan agar data seperti nomor HP berawalan nol tidak berubah.
+
+## 14. Kartu Anggota Kantin
+
+Kartu tidak menggunakan foto Penjual. Ukuran canvas adalah **1011 × 638 px**.
+
+Sisi depan berisi:
+
+- Nama Penjual;
+- Golongan;
+- Lokasi/Lapak;
+- No. HP;
+- Tanggal Bergabung;
+- Alamat;
+- QR verifikasi;
+- Kode Kartu.
+
+Sisi belakang bersifat statis dan menggunakan gambar background dari Setting.
+
+`kode_kartu` dibuat sekali dan dipertahankan. `kode_verifikasi` berupa token acak 64 karakter hex dan boleh diregenerate. Regenerate token membuat QR lama tidak valid tanpa mengganti kode kartu.
+
+Download tersedia:
+
+- JPG sisi depan per Penjual;
+- ZIP depan + belakang per Penjual;
+- ZIP seluruh kartu depan Penjual aktif;
+- ZIP seluruh kartu lengkap Penjual aktif.
+
+Background depan dan belakang diupload melalui Setting.
+
+## 15. Verifikasi dan Scanner QR
+
+QR menyimpan URL verifikasi aplikasi.
+
+Jika QR dibuka oleh pengunjung umum, halaman publik hanya menampilkan:
+
+- Nama Penjual;
+- Golongan;
+- Status.
+
+Nomor HP, alamat, riwayat Iuran, dan data internal lain tidak ditampilkan pada halaman publik.
+
+Jika QR dibuka ketika session Operator aktif, aplikasi mengarahkan ke Detail Penjual internal yang menampilkan data Penjual dan maksimal 20 transaksi Iuran terbaru.
+
+Menu Scan Kartu menggunakan kamera browser melalui `getUserMedia`, decoder jsQR lokal, dan BarcodeDetector sebagai fallback bila tersedia. Scanner juga dapat membaca gambar QR dari file. URL hasil scan harus berasal dari origin aplikasi yang sama dan path verifikasi aplikasi.
+
+HTTPS wajib untuk kamera pada production.
+
+## 16. Setting dan Branding
+
+Operator dapat mengatur:
+
+- Nama Madrasah;
+- Alamat Madrasah;
+- Logo;
+- Background Kartu Depan;
+- Background Kartu Belakang.
+
+Upload branding menerima JPG/JPEG/PNG dengan batas ukuran file. File lama baru dihapus setelah path file baru berhasil disimpan ke database.
+
+Logo digunakan untuk favicon dinamis dan dokumen PDF sesuai kebutuhan aplikasi.
+
+## 17. UI/UX
+
+Prinsip UI aplikasi:
+
+- mobile-first, terutama untuk penggunaan Chrome Android;
+- komponen mengikuti Sneat/Bootstrap 5;
+- DataTables Responsive untuk tabel utama;
+- SweetAlert2 untuk konfirmasi tindakan penting;
+- badge konsisten untuk status/kategori;
+- input uang memakai label Rupiah yang jelas;
+- tombol aksi tulis tidak ditampilkan untuk Pimpinan;
+- sidebar desktop dapat collapse/expand dan state disimpan di browser;
+- menu mobile menggunakan overlay;
+- asset aplikasi dan library runtime disajikan lokal;
+- halaman Input Iuran dan Koreksi Iuran dibuat compact khusus layar kecil.
+
+## 18. Struktur File Penting
+
+```text
+app/
+├── Config/
+├── Controllers/
+│   ├── Auth.php
+│   ├── Dashboard.php
+│   ├── GolonganPenjual.php
+│   ├── Iuran.php
+│   ├── KartuAnggota.php
+│   ├── KategoriPengeluaran.php
+│   ├── KoreksiTransaksi.php
+│   ├── Laporan.php
+│   ├── Pengeluaran.php
+│   ├── Penjual.php
+│   ├── Setoran.php
+│   ├── Setting.php
+│   ├── User.php
+│   └── Verifikasi.php
+├── Filters/
+│   ├── AuthFilter.php
+│   └── OperatorOnlyFilter.php
+├── Models/
+├── Services/
+│   ├── AuthSessionService.php
+│   ├── BrandingUploadService.php
+│   ├── BuktiNotaService.php
+│   ├── BuktiSetoranService.php
+│   ├── IuranService.php
+│   ├── KartuAnggotaService.php
+│   ├── LaporanService.php
+│   ├── PdfService.php
+│   └── QrService.php
+├── Views/
+└── Database/
+    ├── Migrations/
+    └── Seeds/
+
+assets/                       # Sneat dan library lokal
+assets-app/qrcode-lib/        # scanner dan jsQR lokal
+uploads/
+├── branding/
+├── bukti_nota/
+└── bukti_setoran/
+writable/
+vendor/
+docs/
+index.php
+.htaccess
+composer.json
+```
+
+File upload dinamis tidak menjadi source code dan harus dibackup bersama database.
+
+## 19. Konvensi Pengembangan
+
+- Controller menggunakan PascalCase.
+- Model menggunakan nama `{Nama}Model.php`.
+- Logic berat ditempatkan di Service bila layak dipisah.
+- View menggunakan nama spesifik `{modul}_{aksi}.php`.
+- Komentar aplikasi menggunakan Bahasa Indonesia.
+- Aksi mutasi data menggunakan POST.
+- Master data menggunakan soft delete bila histori transaksi harus tetap utuh.
+- Transaksi salah menggunakan hard delete melalui alur koreksi dan konfirmasi.
+- Perubahan schema database hosting yang tidak dapat memakai terminal harus disediakan sebagai SQL phpMyAdmin, bukan mengandalkan perintah terminal.
+- Seeder hanya untuk fresh install dan tidak boleh dijalankan pada database operasional existing.
+
+## 20. Deployment Shared Hosting
+
+Production minimal membutuhkan PHP 8.2+ dengan extension:
+
+```text
+intl
+mbstring
+mysqli
+fileinfo
+gd
+zip
+```
+
+Ketentuan deployment:
+
+- `CI_ENVIRONMENT = production`;
+- `app.baseURL` memakai URL HTTPS production;
+- `app.forceGlobalSecureRequests = true` bila konfigurasi proxy/hosting mendukung dengan benar;
+- `cookie.secure = true`;
+- `writable/`, `uploads/branding/`, `uploads/bukti_nota/`, dan `uploads/bukti_setoran/` harus writable oleh PHP;
+- `.htaccess` root dan `uploads/.htaccess` wajib ikut ZIP deployment;
+- `vendor/` ikut ZIP bila hosting tidak menjalankan Composer;
+- jangan commit atau membagikan `.env` production;
+- backup database dan seluruh folder upload sebelum update;
+- jangan menjalankan seeder pada database existing;
+- perubahan schema manual harus dijalankan di phpMyAdmin sebelum source baru yang membutuhkannya dipakai.
+
+## 21. Backup Operasional
+
+Backup produksi minimal mencakup:
+
+- dump database MySQL/MariaDB;
+- `uploads/branding/`;
+- `uploads/bukti_nota/`;
+- `uploads/bukti_setoran/`;
+- salinan konfigurasi `.env` disimpan aman di luar web root/repository.
+
+Source aplikasi dapat dipulihkan dari Git, tetapi database dan file upload adalah data operasional yang tidak dapat dibuat ulang dari repository.
+
+## 22. Smoke Test Wajib
+
+Setelah update source atau deployment, verifikasi minimal:
+
+- login Operator dan Pimpinan;
+- role Pimpinan benar-benar read-only;
+- akun Nonaktif kehilangan akses pada request berikutnya;
+- sidebar desktop/mobile;
+- CRUD dan arsip master;
+- Input Iuran bulk;
+- Koreksi Iuran;
+- Input Pengeluaran dan kompres bukti nota;
+- Cetak Form Iuran Mingguan;
+- Cetak Form Setoran tanpa insert database;
+- Input/Edit/Delete Setoran Resmi dan bukti foto;
+- Dashboard card dan tiga grafik;
+- seluruh filter Laporan;
+- Rekap Kas dan saldo berjalan;
+- export Excel dan filename periode;
+- upload logo/background;
+- generate/download kartu;
+- verifikasi QR publik;
+- scan QR sebagai Operator;
+- HTTPS dan izin kamera pada perangkat Android;
+- akses langsung ke source/configuration menghasilkan 403/404.
+
+## 23. Batas Perubahan yang Membutuhkan Keputusan Bisnis
+
+Beberapa aturan tidak boleh diubah otomatis hanya karena kebutuhan teknis. Perubahan berikut harus diputuskan secara eksplisit sebelum implementasi:
+
+- apakah satu Penjual hanya boleh memiliki satu transaksi Iuran pada tanggal yang sama;
+- apakah transaksi dengan tanggal masa depan harus ditolak;
+- apakah Setoran Resmi harus dibatasi agar tidak melebihi saldo kas;
+- apakah perubahan Golongan Penjual harus mempertahankan snapshot golongan pada histori Iuran;
+- apakah bukti transaksi harus dipindah dari folder publik ke storage privat dan disajikan melalui route terautentikasi;
+- apakah perubahan transaksi keuangan perlu audit trail selain data Operator pencatat.
+
+Selama belum ada keputusan baru, aplikasi mengikuti perilaku operasional yang dijelaskan di dokumen ini.
