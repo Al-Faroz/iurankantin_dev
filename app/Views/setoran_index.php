@@ -44,7 +44,7 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
                     <td><?= esc($row['keterangan'] ?: '-') ?></td>
                     <td class="text-nowrap">
                         <?php if (! empty($row['bukti_setoran'])): ?>
-                            <?php $buktiUrl = $baseUrl . '/' . ltrim((string) $row['bukti_setoran'], '/'); ?>
+                            <?php $buktiUrl = $baseUrl . '/setoran/' . (int) $row['id_setoran'] . '/bukti'; ?>
                             <a href="<?= esc($buktiUrl) ?>" target="_blank" rel="noopener" class="d-inline-flex align-items-center gap-2" title="Lihat bukti setoran">
                                 <img src="<?= esc($buktiUrl) ?>"
                                      alt="Bukti setoran"
