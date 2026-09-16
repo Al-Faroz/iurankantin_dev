@@ -43,17 +43,24 @@ $backgroundBelakangSiap = ! empty($setting['background_kartu_belakang']);
             <div class="card-body">
                 <h6 class="mb-3">Download Massal</h6>
                 <div class="d-grid gap-2">
-                    <a href="<?= esc($baseUrl) ?>/kartu/download/semua-depan.zip"
-                       class="btn btn-outline-primary<?= $backgroundDepanSiap ? '' : ' disabled' ?>"
-                       <?= $backgroundDepanSiap ? '' : 'aria-disabled="true"' ?>>
-                        <i class="icon-base bx bx-archive-in me-1"></i>Semua Depan
-                    </a>
-                    <a href="<?= esc($baseUrl) ?>/kartu/download/semua-lengkap.zip"
-                       class="btn btn-outline-secondary<?= ($backgroundDepanSiap && $backgroundBelakangSiap) ? '' : ' disabled' ?>"
-                       <?= ($backgroundDepanSiap && $backgroundBelakangSiap) ? '' : 'aria-disabled="true"' ?>>
-                        <i class="icon-base bx bx-archive me-1"></i>Semua Lengkap
-                    </a>
+                    <form action="<?= esc($baseUrl) ?>/kartu/download/semua-depan.zip" method="post" class="d-grid">
+                        <?= csrf_field() ?>
+                        <button type="submit"
+                                class="btn btn-outline-primary"
+                                <?= $backgroundDepanSiap ? '' : 'disabled' ?>>
+                            <i class="icon-base bx bx-archive-in me-1"></i>Semua Depan
+                        </button>
+                    </form>
+                    <form action="<?= esc($baseUrl) ?>/kartu/download/semua-lengkap.zip" method="post" class="d-grid">
+                        <?= csrf_field() ?>
+                        <button type="submit"
+                                class="btn btn-outline-secondary"
+                                <?= ($backgroundDepanSiap && $backgroundBelakangSiap) ? '' : 'disabled' ?>>
+                            <i class="icon-base bx bx-archive me-1"></i>Semua Lengkap
+                        </button>
+                    </form>
                 </div>
+                <div class="form-text mt-2">Download massal dapat membuat kode untuk Penjual aktif yang belum memiliki kartu.</div>
             </div>
         </div>
     </div>
