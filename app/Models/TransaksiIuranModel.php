@@ -13,6 +13,9 @@ class TransaksiIuranModel extends Model
     protected $protectFields = true;
     protected $allowedFields = [
         'id_penjual',
+        'id_golongan_snapshot',
+        'nama_golongan_snapshot',
+        'nominal_golongan_snapshot',
         'tanggal',
         'nominal',
         'keterangan',
