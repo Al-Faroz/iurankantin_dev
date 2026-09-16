@@ -33,7 +33,12 @@ $baseUrl = rtrim((string) config('App')->baseURL, '/');
             <?php foreach ($penjual as $index => $row): ?>
                 <tr>
                     <td><?= $index + 1 ?></td>
-                    <td class="fw-semibold"><?= esc($row['nama_penjual']) ?></td>
+                    <td>
+                        <span class="fw-semibold"><?= esc($row['nama_penjual']) ?></span>
+                        <div class="small text-body-secondary text-wrap mt-1" style="max-width: 300px;">
+                            <?= esc($row['alamat'] ?: '-') ?>
+                        </div>
+                    </td>
                     <td>
                         <?= esc($row['nama_golongan'] ?? '-') ?>
                         <div class="small text-body-secondary">Rp <?= number_format((float) ($row['nominal_iuran'] ?? 0), 0, ',', '.') ?></div>
