@@ -139,6 +139,7 @@ class Penjual extends BaseController
             'id_golongan' => (int) $this->request->getPost('id_golongan'),
             'no_hp' => trim((string) $this->request->getPost('no_hp')) ?: null,
             'lokasi_lapak' => trim((string) $this->request->getPost('lokasi_lapak')) ?: null,
+            'alamat' => trim((string) $this->request->getPost('alamat')) ?: null,
             'status_aktif' => (string) $this->request->getPost('status_aktif'),
             'tanggal_daftar' => (string) $this->request->getPost('tanggal_daftar'),
         ];
@@ -151,6 +152,7 @@ class Penjual extends BaseController
             'id_golongan' => 'required|integer',
             'no_hp' => 'permit_empty|max_length[20]',
             'lokasi_lapak' => 'permit_empty|max_length[100]',
+            'alamat' => 'permit_empty|max_length[255]',
             'status_aktif' => 'required|in_list[Aktif,Nonaktif]',
             'tanggal_daftar' => 'required|valid_date[Y-m-d]',
         ];
