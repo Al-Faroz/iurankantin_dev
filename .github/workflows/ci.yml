@@ -20,7 +20,7 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-          extensions: intl, mbstring, mysqli, gd, zip
+          extensions: intl, mbstring, mysqli, gd, zip, sqlite3
           coverage: none
 
       - name: Setup Node
@@ -40,7 +40,7 @@ jobs:
           set -euo pipefail
           while IFS= read -r -d '' file; do
             php -l "$file" >/dev/null
-          done < <(find app -type f -name '*.php' -print0)
+          done < <(find app tests -type f -name '*.php' -print0)
 
       - name: JavaScript syntax lint
         run: |
@@ -49,3 +49,6 @@ jobs:
 
       - name: Route compilation check
         run: php spark routes
+
+      - name: PHPUnit
+        run: vendor/bin/phpunit -c phpunit.dist.xml
