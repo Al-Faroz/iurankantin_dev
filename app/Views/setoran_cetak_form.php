@@ -21,7 +21,8 @@ $nominal = old('nominal') ?: '';
                     <div class="row g-4">
                         <div class="col-12 col-md-6">
                             <label for="tanggal_form" class="form-label">Tanggal Form <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control" id="tanggal_form" name="tanggal_form" value="<?= esc((string) $tanggalForm) ?>" required>
+                            <input type="date" class="form-control" id="tanggal_form" name="tanggal_form" value="<?= esc((string) $tanggalForm) ?>" max="<?= esc((string) $tanggalMaks) ?>" required>
+                            <div class="form-text">Tanggal form tidak boleh melebihi hari ini.</div>
                         </div>
                         <div class="col-12 col-md-6">
                             <label for="nominal" class="form-label">Besar Setoran <span class="text-danger">*</span></label>
