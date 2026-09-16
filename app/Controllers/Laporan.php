@@ -128,8 +128,11 @@ class Laporan extends BaseController
     {
         $filter = $this->filter([]);
         $rekap = $this->service->rekapKas($filter);
+        $periodeAwal = date('d-m-Y', strtotime($filter['tanggal_awal']));
+        $periodeAkhir = date('d-m-Y', strtotime($filter['tanggal_akhir']));
+
         $excelRows = [[
-            $filter['tanggal_awal'],
+            $periodeAwal,
             'Saldo Awal',
             'Saldo sebelum periode laporan',
             0,
@@ -150,7 +153,7 @@ class Laporan extends BaseController
 
         return $this->excelResponse(
             $this->service->excel('Rekap Kas', ['Tanggal', 'Jenis', 'Uraian', 'Masuk', 'Keluar', 'Saldo'], $excelRows),
-            'rekap-kas.xlsx'
+            'rekap-kas_' . $periodeAwal . '_sd_' . $periodeAkhir . '.xlsx'
         );
     }
 
