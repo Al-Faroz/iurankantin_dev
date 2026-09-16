@@ -195,8 +195,11 @@ class Setoran extends BaseController
             throw PageNotFoundException::forPageNotFound('Setoran pimpinan tidak ditemukan.');
         }
 
-        // Setoran merupakan transaksi. Koreksi data salah menggunakan hard delete sesuai kebutuhan aplikasi.
-        $this->model->delete($id, true);
+        // Bukti baru dihapus hanya jika transaksi benar-benar berhasil dihapus dari database.
+        if ($this->model->delete($id, true) === false) {
+            return redirect()->to($this->baseUrl . '/setoran')
+                ->with('error', 'Setoran pimpinan gagal dihapus. Silakan coba kembali.');
+        }
 
         if (! empty($setoran['bukti_setoran'])) {
             $this->hapusBukti((string) $setoran['bukti_setoran']);
