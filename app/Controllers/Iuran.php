@@ -3,6 +3,7 @@
 namespace App\Controllers;
 
 use App\Models\SettingModel;
+use App\Services\AuditTransaksiService;
 use App\Services\IuranService;
 use App\Services\PdfService;
 use CodeIgniter\I18n\Time;
@@ -21,14 +22,16 @@ class Iuran extends BaseController
 
     public function index()
     {
-        $tanggal = (string) ($this->request->getGet('tanggal') ?: Time::now('Asia/Jakarta')->toDateString());
-        if (! $this->isValidDate($tanggal)) {
-            $tanggal = Time::now('Asia/Jakarta')->toDateString();
+        $today = Time::now('Asia/Jakarta')->toDateString();
+        $tanggal = (string) ($this->request->getGet('tanggal') ?: $today);
+        if (! $this->isValidDate($tanggal) || $tanggal > $today) {
+            $tanggal = $today;
         }
 
         return view('iuran_bulk', [
             'title' => 'Input Iuran Harian',
             'tanggalDefault' => $tanggal,
+            'tanggalMaks' => $today,
             'penjual' => $this->getPenjualAktif(),
             'penjualSudahBayar' => $this->getPenjualSudahBayar($tanggal),
         ]);
@@ -41,23 +44,44 @@ class Iuran extends BaseController
         }
 
         $tanggal = (string) $this->request->getPost('tanggal');
+        $today = Time::now('Asia/Jakarta')->toDateString();
+        if ($tanggal > $today) {
+            return redirect()->back()->withInput()->with('error', 'Tanggal Iuran tidak boleh melebihi hari ini.');
+        }
+
         $bayar = $this->request->getPost('bayar');
         $nominal = $this->request->getPost('nominal');
         $keterangan = $this->request->getPost('keterangan');
+        $bayar = is_array($bayar) ? $bayar : [];
+        $nominal = is_array($nominal) ? $nominal : [];
+        $keterangan = is_array($keterangan) ? $keterangan : [];
 
         try {
             $jumlah = (new IuranService())->simpanBulk(
                 $tanggal,
                 (int) session()->get('id_user'),
-                is_array($bayar) ? $bayar : [],
-                is_array($nominal) ? $nominal : [],
-                is_array($keterangan) ? $keterangan : []
+                $bayar,
+                $nominal,
+                $keterangan
             );
         } catch (RuntimeException $e) {
             return redirect()->to($this->baseUrl . '/iuran?' . http_build_query(['tanggal' => $tanggal]))
                 ->withInput()
                 ->with('error', $e->getMessage());
         }
+
+        $ids = array_map('intval', array_keys($bayar));
+        $totalNominal = 0.0;
+        foreach ($ids as $idPenjual) {
+            $totalNominal += (float) ($nominal[$idPenjual] ?? $nominal[(string) $idPenjual] ?? 0);
+        }
+
+        (new AuditTransaksiService())->catat('CREATE_BULK', 'iuran', null, [
+            'tanggal' => $tanggal,
+            'jumlah_transaksi' => $jumlah,
+            'total_nominal' => $totalNominal,
+            'id_penjual' => $ids,
+        ]);
 
         return redirect()->to($this->baseUrl . '/iuran?' . http_build_query(['tanggal' => $tanggal]))
             ->with('success', $jumlah . ' transaksi iuran berhasil disimpan.');
