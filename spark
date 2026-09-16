@@ -38,7 +38,7 @@ if (str_starts_with(PHP_SAPI, 'cgi')) {
  *---------------------------------------------------------------
  */
 
-$minPhpVersion = '8.2'; // If you update this, don't forget to update `public/index.php`.
+$minPhpVersion = '8.2'; // Jika diubah, samakan juga dengan index.php.
 if (version_compare(PHP_VERSION, $minPhpVersion, '<')) {
     $message = sprintf(
         'Your PHP version must be %s or higher to run CodeIgniter. Current version: %s',
@@ -59,11 +59,13 @@ ini_set('display_errors', '1');
  *---------------------------------------------------------------
  */
 
-// Path to the front controller
-define('FCPATH', __DIR__ . DIRECTORY_SEPARATOR . 'public' . DIRECTORY_SEPARATOR);
+// Project ini memindahkan front controller dari public/ ke root project.
+define('FCPATH', __DIR__ . DIRECTORY_SEPARATOR);
 
-// Ensure the current directory is pointing to the front controller's directory
-chdir(FCPATH);
+// Ensure the current directory is pointing to the front controller's directory.
+if (getcwd() . DIRECTORY_SEPARATOR !== FCPATH) {
+    chdir(FCPATH);
+}
 
 /*
  *---------------------------------------------------------------
@@ -75,9 +77,7 @@ chdir(FCPATH);
  */
 
 // LOAD OUR PATHS CONFIG FILE
-// This is the line that might need to be changed, depending on your folder structure.
-require FCPATH . '../app/Config/Paths.php';
-// ^^^ Change this line if you move your application folder
+require FCPATH . 'app/Config/Paths.php';
 
 $paths = new Paths();
 
