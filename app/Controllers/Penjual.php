@@ -80,7 +80,9 @@ class Penjual extends BaseController
             return redirect()->back()->withInput()->with('error', 'Golongan penjual tidak valid.');
         }
 
-        $this->model->insert($this->payload());
+        if ($this->model->insert($this->payload()) === false) {
+            return redirect()->back()->withInput()->with('error', 'Data penjual gagal disimpan. Silakan coba kembali.');
+        }
 
         return redirect()->to($this->baseUrl . '/penjual')->with('success', 'Data penjual berhasil ditambahkan.');
     }
@@ -114,7 +116,9 @@ class Penjual extends BaseController
             return redirect()->back()->withInput()->with('error', 'Golongan penjual tidak valid.');
         }
 
-        $this->model->update($id, $this->payload());
+        if ($this->model->update($id, $this->payload()) === false) {
+            return redirect()->back()->withInput()->with('error', 'Data penjual gagal diperbarui. Silakan coba kembali.');
+        }
 
         return redirect()->to($this->baseUrl . '/penjual')->with('success', 'Data penjual berhasil diperbarui.');
     }
@@ -153,13 +157,18 @@ class Penjual extends BaseController
         }
 
         $now = date('Y-m-d H:i:s');
-        db_connect()->table('penjual')
+        $saved = db_connect()->table('penjual')
             ->where('id_penjual', $id)
             ->update([
                 'status_aktif' => 'Nonaktif',
                 'deleted_at' => $now,
                 'updated_at' => $now,
             ]);
+
+        if ($saved === false) {
+            return redirect()->to($this->baseUrl . '/penjual')
+                ->with('error', 'Penjual gagal diarsipkan. Silakan coba kembali.');
+        }
 
         return redirect()->to($this->baseUrl . '/penjual')
             ->with('success', 'Penjual berhasil diarsipkan. Riwayat transaksi tetap tersimpan.');
