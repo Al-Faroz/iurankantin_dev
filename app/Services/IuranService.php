@@ -34,14 +34,19 @@ class IuranService
         }
 
         $penjualAktif = $this->db->table('penjual')
-            ->select('id_penjual')
-            ->whereIn('id_penjual', $ids)
-            ->where('status_aktif', 'Aktif')
-            ->where('deleted_at', null)
+            ->select('penjual.id_penjual, penjual.nama_penjual, penjual.id_golongan, golongan_penjual.nama_golongan, golongan_penjual.nominal_iuran')
+            ->join('golongan_penjual', 'golongan_penjual.id_golongan = penjual.id_golongan')
+            ->whereIn('penjual.id_penjual', $ids)
+            ->where('penjual.status_aktif', 'Aktif')
+            ->where('penjual.deleted_at', null)
+            ->where('golongan_penjual.deleted_at', null)
             ->get()
             ->getResultArray();
 
-        $idValid = array_map(static fn (array $row): int => (int) $row['id_penjual'], $penjualAktif);
+        $penjualMap = [];
+        foreach ($penjualAktif as $row) {
+            $penjualMap[(int) $row['id_penjual']] = $row;
+        }
 
         // Aturan bisnis: satu Penjual hanya boleh memiliki satu transaksi iuran
         // pada tanggal yang sama. Pemeriksaan aplikasi memberi pesan yang ramah,
@@ -73,7 +78,7 @@ class IuranService
         $createdAt = date('Y-m-d H:i:s');
 
         foreach ($ids as $idPenjual) {
-            if (! in_array($idPenjual, $idValid, true)) {
+            if (! isset($penjualMap[$idPenjual])) {
                 continue;
             }
 
@@ -82,9 +87,13 @@ class IuranService
                 throw new RuntimeException('Nominal iuran yang dipilih harus lebih dari nol.');
             }
 
+            $penjual = $penjualMap[$idPenjual];
             $catatan = trim((string) ($keterangan[$idPenjual] ?? ''));
             $rows[] = [
                 'id_penjual' => $idPenjual,
+                'id_golongan_snapshot' => (int) $penjual['id_golongan'],
+                'nama_golongan_snapshot' => (string) $penjual['nama_golongan'],
+                'nominal_golongan_snapshot' => (float) $penjual['nominal_iuran'],
                 'tanggal' => $tanggal,
                 'nominal' => $nilai,
                 'keterangan' => $catatan !== '' ? $catatan : null,
