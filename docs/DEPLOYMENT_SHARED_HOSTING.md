@@ -9,6 +9,7 @@ Simpan backup di lokasi di luar document root hosting:
 - dump database MySQL/MariaDB;
 - folder `uploads/branding/`;
 - folder `uploads/bukti_nota/`;
+- folder `uploads/bukti_setoran/`;
 - file `.env` lokal hanya sebagai referensi konfigurasi, jangan dipublikasikan.
 
 Jangan menjalankan seeder pada database operasional yang sudah berisi data.
@@ -92,6 +93,7 @@ PHP/web server harus dapat menulis ke:
 writable/
 uploads/branding/
 uploads/bukti_nota/
+uploads/bukti_setoran/
 ```
 
 Gunakan permission paling minimum yang bekerja pada hosting (umumnya folder `755` atau `775` tergantung owner/group). Hindari `777` kecuali benar-benar diwajibkan provider dan tidak ada alternatif.
@@ -155,10 +157,10 @@ Lakukan dari browser desktop dan mobile:
 [ ] Pengeluaran + upload nota
 [ ] Cetak form iuran mingguan
 [ ] Download form Setoran 2 copy dalam 1 A4
-[ ] Input/Edit/Delete/Cetak Ulang Setoran
+[ ] Input/Edit/Delete/Cetak Ulang Setoran + upload/lihat bukti foto
 [ ] Laporan Iuran/Pengeluaran/Setoran
 [ ] Rekap Kas dan saldo berjalan
-[ ] Export Excel sesuai filter
+[ ] Export Excel sesuai filter dan periode pada nama file
 [ ] Upload logo/background kartu
 [ ] Favicon mengikuti logo
 [ ] Generate/download kartu JPG/ZIP
@@ -172,7 +174,8 @@ Setelah production aktif, backup terjadwal minimal harus mencakup:
 
 - database;
 - `uploads/branding/`;
-- `uploads/bukti_nota/`.
+- `uploads/bukti_nota/`;
+- `uploads/bukti_setoran/`.
 
 Kode aplikasi dapat dipulihkan dari Git, tetapi database dan file upload adalah data operasional yang tidak ada di repository.
 
