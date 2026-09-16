@@ -11,6 +11,9 @@ if ($keterangan === null) {
     $keterangan = $setoran['keterangan'] ?? '';
 }
 $buktiSetoran = $setoran['bukti_setoran'] ?? null;
+$buktiUrl = $isEdit && $buktiSetoran
+    ? $baseUrl . '/setoran/' . (int) $setoran['id_setoran'] . '/bukti'
+    : null;
 $formAction = $isEdit
     ? $baseUrl . '/setoran/' . (int) $setoran['id_setoran'] . '/update'
     : $baseUrl . '/setoran/simpan';
@@ -72,10 +75,10 @@ $formAction = $isEdit
                                 <?= $isEdit ? 'Kosongkan jika tidak ingin mengganti bukti yang sudah ada.' : '' ?>
                             </div>
 
-                            <?php if ($isEdit && $buktiSetoran): ?>
+                            <?php if ($isEdit && $buktiSetoran && $buktiUrl): ?>
                                 <div class="d-flex align-items-center gap-3 mt-3 p-3 border rounded">
-                                    <a href="<?= esc($baseUrl . '/' . ltrim((string) $buktiSetoran, '/')) ?>" target="_blank" rel="noopener" class="d-block flex-shrink-0">
-                                        <img src="<?= esc($baseUrl . '/' . ltrim((string) $buktiSetoran, '/')) ?>"
+                                    <a href="<?= esc($buktiUrl) ?>" target="_blank" rel="noopener" class="d-block flex-shrink-0">
+                                        <img src="<?= esc($buktiUrl) ?>"
                                              alt="Bukti setoran saat ini"
                                              class="rounded border"
                                              style="width:72px;height:72px;object-fit:cover;">
@@ -83,7 +86,7 @@ $formAction = $isEdit
                                     <div>
                                         <div class="fw-semibold">Bukti saat ini</div>
                                         <div class="small text-body-secondary mb-1">Bukti lama tetap dipakai jika tidak memilih foto baru.</div>
-                                        <a href="<?= esc($baseUrl . '/' . ltrim((string) $buktiSetoran, '/')) ?>" target="_blank" rel="noopener" class="small">Lihat ukuran penuh</a>
+                                        <a href="<?= esc($buktiUrl) ?>" target="_blank" rel="noopener" class="small">Lihat ukuran penuh</a>
                                     </div>
                                 </div>
                             <?php elseif ($isEdit): ?>
