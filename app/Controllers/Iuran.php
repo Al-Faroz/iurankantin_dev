@@ -95,6 +95,7 @@ class Iuran extends BaseController
         return view('iuran_form_mingguan', [
             'title' => 'Cetak Form Iuran Mingguan',
             'tanggalSabtuDefault' => $saturday->format('Y-m-d'),
+            'lokasiPilihan' => $this->getLokasiAktif(),
         ]);
     }
 
@@ -108,6 +109,27 @@ class Iuran extends BaseController
         $start = new DateTimeImmutable($tanggalSabtu, new DateTimeZone('Asia/Jakarta'));
         if ((int) $start->format('N') !== 6) {
             return redirect()->back()->withInput()->with('error', 'Tanggal awal harus hari Sabtu.');
+        }
+
+        $lokasiPost = $this->request->getPost('lokasi');
+        if (! is_array($lokasiPost) || $lokasiPost === []) {
+            return redirect()->back()->withInput()->with('error', 'Pilih minimal satu Lokasi Lapak untuk dicetak.');
+        }
+
+        $lokasiTersedia = $this->getLokasiAktif();
+        $lokasiDiminta = array_values(array_unique(array_filter(
+            array_map(static fn ($value): string => trim((string) $value), $lokasiPost),
+            static fn (string $value): bool => $value !== ''
+        )));
+        $lokasiDipilih = array_values(array_intersect($lokasiTersedia, $lokasiDiminta));
+
+        if ($lokasiDipilih === []) {
+            return redirect()->back()->withInput()->with('error', 'Lokasi Lapak yang dipilih tidak valid atau sudah tidak memiliki Penjual aktif.');
+        }
+
+        $penjual = $this->getPenjualAktif($lokasiDipilih);
+        if ($penjual === []) {
+            return redirect()->back()->withInput()->with('error', 'Tidak ada Penjual aktif pada Lokasi Lapak yang dipilih.');
         }
 
         $days = [];
@@ -125,9 +147,9 @@ class Iuran extends BaseController
         $pdfService = new PdfService();
         $binary = $pdfService->render('pdf_form_mingguan', [
             'setting' => $setting,
-            'logoDataUri' => $pdfService->imageDataUri($setting['logo'] ?? null),
-            'penjual' => $this->getPenjualAktif(),
+            'penjual' => $penjual,
             'days' => $days,
+            'lokasiDipilih' => $lokasiDipilih,
         ], 'A4', 'landscape');
 
         $filename = 'form-iuran-mingguan-' . $start->format('Ymd') . '.pdf';
@@ -138,9 +160,9 @@ class Iuran extends BaseController
             ->setBody($binary);
     }
 
-    private function getPenjualAktif(): array
+    private function getPenjualAktif(?array $lokasi = null): array
     {
-        return db_connect()->table('penjual')
+        $rows = db_connect()->table('penjual')
             ->select('penjual.id_penjual, penjual.nama_penjual, penjual.lokasi_lapak, golongan_penjual.nama_golongan, golongan_penjual.nominal_iuran')
             ->join('golongan_penjual', 'golongan_penjual.id_golongan = penjual.id_golongan')
             ->where('penjual.status_aktif', 'Aktif')
@@ -150,6 +172,40 @@ class Iuran extends BaseController
             ->orderBy('penjual.nama_penjual', 'ASC')
             ->get()
             ->getResultArray();
+
+        if ($lokasi === null) {
+            return $rows;
+        }
+
+        $lokasiMap = [];
+        foreach ($lokasi as $namaLokasi) {
+            $namaLokasi = trim((string) $namaLokasi);
+            if ($namaLokasi !== '') {
+                $lokasiMap[$namaLokasi] = true;
+            }
+        }
+
+        return array_values(array_filter(
+            $rows,
+            static fn (array $row): bool => isset($lokasiMap[trim((string) ($row['lokasi_lapak'] ?? ''))])
+        ));
+    }
+
+    private function getLokasiAktif(): array
+    {
+        $lokasi = [];
+
+        foreach ($this->getPenjualAktif() as $row) {
+            $namaLokasi = trim((string) ($row['lokasi_lapak'] ?? ''));
+            if ($namaLokasi !== '') {
+                $lokasi[$namaLokasi] = true;
+            }
+        }
+
+        $hasil = array_keys($lokasi);
+        natcasesort($hasil);
+
+        return array_values($hasil);
     }
 
     private function getPenjualSudahBayar(string $tanggal): array
